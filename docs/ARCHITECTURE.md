@@ -37,13 +37,15 @@ The Python renderer independently normalizes the same public configuration contr
 
 ## Renderer
 
-`OceanScene` contains bounded lists of fish, bubbles, and motes. Each frame:
+`OceanScene` renders a fixed layer stack:
 
-1. advances positions from monotonic time;
-2. wraps fish and bubbles at scene boundaries;
-3. paints water, habitat, bubbles, fish, and telemetry into a cell buffer;
-4. emits ANSI truecolor only when the active foreground color changes;
-5. erases the unpainted remainder of each terminal row.
+1. background source;
+2. optional pelagic current, scanline, and particle effects;
+3. water and habitat;
+4. fish;
+5. telemetry.
+
+Backdrop effects are independent from the source so the same bounded terminal-native treatment can compose over built-in and user-selected sources. Each frame then advances positions from monotonic time, wraps entities at scene boundaries, paints into a cell buffer, emits ANSI truecolor only when the active foreground color changes, and erases the unpainted remainder of every row.
 
 Sprites contain only single-cell glyphs. A mirror translation reverses direction without maintaining duplicate left-facing art. `--seed` makes snapshots deterministic for tests and visual debugging.
 

@@ -17,6 +17,7 @@ Item {
     schemaVersion: 1,
     species: { neon_tetra: 10, clownfish: 4, angelfish: 3, discus: 3, butterflyfish: 2, royal_tang: 3, betta: 1, puffer: 2 },
     art: { palette: "lagoon", bubbleDensity: 55, current: 1.0, showTelemetry: true },
+    backdrop: { source: "plain", effectsEnabled: false, effectIntensity: 55 },
     sound: { enabled: false, volume: 24 },
     integration: { idleEnabled: true, exitOnPointerMotion: true }
   })
@@ -88,6 +89,11 @@ Item {
     next.art.bubbleDensity = Math.round(clamp(art.bubbleDensity, 0, 100, defaults.art.bubbleDensity))
     next.art.current = Math.round(clamp(art.current, 0.35, 1.8, defaults.art.current) * 100) / 100
     next.art.showTelemetry = art.showTelemetry === undefined ? defaults.art.showTelemetry : !!art.showTelemetry
+    var backdrop = incoming.backdrop && typeof incoming.backdrop === "object" ? incoming.backdrop : ({})
+    var backdropSource = String(backdrop.source || defaults.backdrop.source)
+    next.backdrop.source = backdropSource === "pelagic" ? "pelagic" : "plain"
+    next.backdrop.effectsEnabled = typeof backdrop.effectsEnabled === "boolean" ? backdrop.effectsEnabled : defaults.backdrop.effectsEnabled
+    next.backdrop.effectIntensity = Math.round(clamp(backdrop.effectIntensity, 0, 100, defaults.backdrop.effectIntensity))
     var sound = incoming.sound && typeof incoming.sound === "object" ? incoming.sound : ({})
     next.sound.enabled = sound.enabled === undefined ? defaults.sound.enabled : !!sound.enabled
     next.sound.volume = Math.round(clamp(sound.volume, 0, 100, defaults.sound.volume))
@@ -134,6 +140,13 @@ Item {
   function changeArt(key, value) {
     var next = clone(config)
     next.art[key] = value
+    config = normalise(next)
+    persist()
+  }
+
+  function changeBackdrop(key, value) {
+    var next = clone(config)
+    next.backdrop[key] = value
     config = normalise(next)
     persist()
   }
@@ -681,6 +694,85 @@ Item {
               MouseArea { anchors.fill: parent; onClicked: root.changeArt("showTelemetry", !root.config.art.showTelemetry) }
             }
             Text { x: 43; y: 179; text: "render terminal telemetry"; color: "#78959d"; font.family: root.fontFamily; font.pixelSize: 10 }
+          }
+
+          Text {
+            text: "BACKDROP LAYERS"
+            color: "#8baab2"
+            font.family: root.fontFamily
+            font.pixelSize: 11
+            font.bold: true
+            font.letterSpacing: 2
+          }
+
+          Rectangle {
+            width: parent.width
+            height: 164
+            radius: 11
+            color: "#160c252d"
+            border.width: 1
+            border.color: "#263e6670"
+
+            Text { x: 16; y: 14; text: "BACKGROUND SOURCE"; color: "#d7eef2"; font.family: root.fontFamily; font.pixelSize: 12; font.bold: true }
+            Row {
+              x: 16; y: 39
+              spacing: 8
+              Repeater {
+                model: [
+                  { key: "plain", label: "PLAIN DEPTH" },
+                  { key: "pelagic", label: "PELAGIC FIELD" }
+                ]
+                Rectangle {
+                  id: backdropChip
+                  required property var modelData
+                  width: 142; height: 32; radius: 7
+                  color: root.config.backdrop.source === backdropChip.modelData.key ? root.accent : "#16ffffff"
+                  border.width: 1
+                  border.color: root.accent
+                  Text {
+                    anchors.centerIn: parent
+                    text: backdropChip.modelData.label
+                    color: root.config.backdrop.source === backdropChip.modelData.key ? "#071218" : root.accent
+                    font.family: root.fontFamily
+                    font.pixelSize: 10
+                    font.bold: true
+                  }
+                  MouseArea { anchors.fill: parent; onClicked: root.changeBackdrop("source", backdropChip.modelData.key) }
+                }
+              }
+            }
+
+            Text { x: 16; y: 91; text: "PELAGIC EFFECT OVERLAY"; color: "#a9c6cc"; font.family: root.fontFamily; font.pixelSize: 11 }
+            Rectangle {
+              x: 180; y: 84
+              width: 48; height: 26; radius: 13
+              color: root.config.backdrop.effectsEnabled ? root.accent : "#31454b"
+              Rectangle {
+                x: root.config.backdrop.effectsEnabled ? parent.width - width - 3 : 3
+                anchors.verticalCenter: parent.verticalCenter
+                width: 20; height: 20; radius: 10
+                color: root.config.backdrop.effectsEnabled ? "#071218" : "#aec4c9"
+                Behavior on x { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+              }
+              MouseArea { anchors.fill: parent; onClicked: root.changeBackdrop("effectsEnabled", !root.config.backdrop.effectsEnabled) }
+            }
+
+            Text { x: 16; y: 132; text: "EFFECT INTENSITY"; color: "#a9c6cc"; font.family: root.fontFamily; font.pixelSize: 11 }
+            Row {
+              anchors { right: parent.right; rightMargin: 16; top: parent.top; topMargin: 122 }
+              spacing: 8
+              Rectangle {
+                width: 34; height: 30; radius: 6; color: "#1cffffff"
+                Text { anchors.centerIn: parent; text: "−"; color: "#cce8ec"; font.family: root.fontFamily; font.pixelSize: 17 }
+                MouseArea { anchors.fill: parent; onClicked: root.changeBackdrop("effectIntensity", root.config.backdrop.effectIntensity - 5) }
+              }
+              Text { width: 54; height: 30; text: root.config.backdrop.effectIntensity + "%"; color: root.accent; font.family: root.fontFamily; font.pixelSize: 14; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+              Rectangle {
+                width: 34; height: 30; radius: 6; color: "#1cffffff"
+                Text { anchors.centerIn: parent; text: "+"; color: "#cce8ec"; font.family: root.fontFamily; font.pixelSize: 16 }
+                MouseArea { anchors.fill: parent; onClicked: root.changeBackdrop("effectIntensity", root.config.backdrop.effectIntensity + 5) }
+              }
+            }
           }
 
           Text {

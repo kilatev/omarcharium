@@ -22,6 +22,7 @@ class ConfigurationTests(unittest.TestCase):
         config = AQUARIUM.normalise_config({
             "species": {"neon_tetra": 999, "puffer": -4, "unknown": 12},
             "art": {"palette": "not-a-palette", "bubbleDensity": 155, "current": 0, "showTelemetry": 0},
+            "backdrop": {"source": "unknown", "effectsEnabled": "yes", "effectIntensity": 400},
             "sound": {"enabled": 1, "volume": "41"},
             "integration": {"idleEnabled": False, "exitOnPointerMotion": False},
         })
@@ -33,6 +34,9 @@ class ConfigurationTests(unittest.TestCase):
         self.assertEqual(config["art"]["bubbleDensity"], 100)
         self.assertEqual(config["art"]["current"], 0.35)
         self.assertFalse(config["art"]["showTelemetry"])
+        self.assertEqual(config["backdrop"]["source"], "plain")
+        self.assertFalse(config["backdrop"]["effectsEnabled"])
+        self.assertEqual(config["backdrop"]["effectIntensity"], 100)
         self.assertTrue(config["sound"]["enabled"])
         self.assertEqual(config["sound"]["volume"], 41)
         self.assertFalse(config["integration"]["idleEnabled"])
@@ -74,6 +78,35 @@ class RendererTests(unittest.TestCase):
         self.assertEqual(len(snapshot), 24)
         self.assertTrue(all(len(line) <= 80 for line in snapshot))
         self.assertIn("Y", "\n".join(snapshot))
+
+    def test_pelagic_backdrop_and_effect_overlay_are_independent_and_deterministic(self) -> None:
+        base = {
+            "species": {key: 0 for key in AQUARIUM.SPRITES},
+            "art": {"showTelemetry": False},
+            "backdrop": {"source": "pelagic", "effectsEnabled": False},
+        }
+        without_effects = AQUARIUM.OceanScene(80, 24, AQUARIUM.normalise_config(base), seed=23)
+        first = without_effects.render().plain()
+        repeated = AQUARIUM.OceanScene(80, 24, AQUARIUM.normalise_config(base), seed=23).render().plain()
+
+        base["backdrop"]["effectsEnabled"] = True
+        with_effects = AQUARIUM.OceanScene(80, 24, AQUARIUM.normalise_config(base), seed=23)
+        effected = with_effects.render().plain()
+
+        self.assertEqual(first, repeated)
+        self.assertNotEqual(first, effected)
+        self.assertIn("·", first)
+        self.assertIn("~", effected)
+
+    def test_pelagic_backdrop_renders_in_every_palette(self) -> None:
+        for palette in AQUARIUM.PALETTES:
+            config = AQUARIUM.normalise_config({
+                "art": {"palette": palette, "showTelemetry": False},
+                "backdrop": {"source": "pelagic", "effectsEnabled": True},
+            })
+            scene = AQUARIUM.OceanScene(80, 24, config, seed=5)
+            with self.subTest(palette=palette):
+                self.assertIn("·", scene.render().plain())
 
 
 class DismissalInputTests(unittest.TestCase):

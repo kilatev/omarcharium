@@ -112,7 +112,7 @@ The control room writes settings atomically to:
 ~/.config/omarcharium/config.json
 ```
 
-Every species has an exact independent population. The water column controls palette, bubbles, current velocity, and terminal telemetry. Ambience controls generation and volume. Surface controls can keep the reef visible during pointer movement while clicks and keyboard input continue to dismiss it.
+Every species has an exact independent population. The water column controls palette, bubbles, current velocity, and terminal telemetry. Backdrop controls select Plain Depth or the palette-aware Pelagic Field, plus an independently configurable animated-effects overlay. Ambience controls generation and volume. Surface controls can keep the reef visible during pointer movement while clicks and keyboard input continue to dismiss it.
 
 See the complete [configuration reference](docs/CONFIGURATION.md) for limits, defaults, JSON schema, and diagnostics.
 

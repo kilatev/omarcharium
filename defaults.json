@@ -16,6 +16,11 @@
     "current": 1.0,
     "showTelemetry": true
   },
+  "backdrop": {
+    "source": "plain",
+    "effectsEnabled": false,
+    "effectIntensity": 55
+  },
   "sound": {
     "enabled": false,
     "volume": 24

@@ -36,6 +36,10 @@ CONFIG_PATH = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) /
 
 RGB = tuple[int, int, int]
 
+def mix_rgb(start: RGB, end: RGB, amount: float) -> RGB:
+    amount = max(0.0, min(1.0, amount))
+    return tuple(round(left + (right - left) * amount) for left, right in zip(start, end))
+
 PALETTES: dict[str, dict[str, RGB]] = {
     "lagoon": {
         "background": (2, 18, 28), "water": (29, 120, 143), "caustic": (93, 230, 226),
@@ -159,6 +163,11 @@ def normalise_config(raw: Any) -> dict[str, Any]:
     palette = str(art.get("palette", fallback_art.get("palette", "lagoon")))
     if palette not in PALETTES:
         palette = "lagoon"
+    backdrop = merged.get("backdrop", {})
+    fallback_backdrop = defaults.get("backdrop", {})
+    backdrop_source = str(backdrop.get("source", fallback_backdrop.get("source", "plain")))
+    if backdrop_source not in {"plain", "pelagic"}:
+        backdrop_source = "plain"
 
     sound = merged.get("sound", {})
     fallback_sound = defaults.get("sound", {})
@@ -172,6 +181,16 @@ def normalise_config(raw: Any) -> dict[str, Any]:
             "bubbleDensity": int(clamp_number(art.get("bubbleDensity"), 0, 100, fallback_art.get("bubbleDensity", 55))),
             "current": round(clamp_number(art.get("current"), 0.35, 1.8, fallback_art.get("current", 1.0)), 2),
             "showTelemetry": bool(art.get("showTelemetry", fallback_art.get("showTelemetry", True))),
+        },
+        "backdrop": {
+            "source": backdrop_source,
+            "effectsEnabled": backdrop.get("effectsEnabled")
+            if isinstance(backdrop.get("effectsEnabled"), bool)
+            else bool(fallback_backdrop.get("effectsEnabled", False)),
+            "effectIntensity": int(clamp_number(
+                backdrop.get("effectIntensity"), 0, 100,
+                fallback_backdrop.get("effectIntensity", 55),
+            )),
         },
         "sound": {
             "enabled": bool(sound.get("enabled", fallback_sound.get("enabled", False))),
@@ -273,6 +292,10 @@ class OceanScene:
         self.fish: list[Fish] = []
         self.bubbles: list[Bubble] = []
         self.motes: list[Mote] = []
+        self.backdrop_shades = tuple(
+            mix_rgb(self.palette["background"], self.palette["water"], 0.07 + index * 0.025)
+            for index in range(8)
+        )
         self._populate()
 
     @property
@@ -367,6 +390,44 @@ class OceanScene:
         for mote in self.motes:
             mote.x += math.sin(self.elapsed * mote.speed + mote.phase) * dt * 0.18
             mote.y += math.cos(self.elapsed * mote.speed * 0.7 + mote.phase) * dt * 0.08
+
+    def _draw_backdrop_source(self, canvas: FrameBuffer) -> None:
+        if self.config["backdrop"]["source"] != "pelagic":
+            return
+        for y in range(3, self.height - 3):
+            depth = min(7, y * 8 // max(1, self.height))
+            stride = 5 + depth % 3
+            offset = (y * 7) % stride
+            glyph = "." if depth < 4 else "·"
+            for x in range(offset, self.width, stride):
+                canvas.put(x, y, glyph, self.backdrop_shades[depth])
+
+    def _draw_backdrop_effects(self, canvas: FrameBuffer) -> None:
+        backdrop = self.config["backdrop"]
+        if not backdrop["effectsEnabled"] or backdrop["effectIntensity"] <= 0:
+            return
+
+        intensity = backdrop["effectIntensity"]
+        palette = self.palette
+        band_count = max(1, (intensity + 24) // 25)
+        for band in range(band_count):
+            centre = int(self.height * (band + 1) / (band_count + 1))
+            for x in range((band + self.frame // 3) % 3, self.width, 3):
+                y = centre + int(round(math.sin(x * 0.08 + self.elapsed * (0.45 + band * 0.09) + band) * 1.8))
+                glyph = "~" if (x // 3 + band + self.frame // 10) % 4 else "─"
+                canvas.put(x, y, glyph, palette["dim"] if band & 1 else palette["water"])
+
+        scanline_spacing = max(5, 15 - intensity // 10)
+        for y in range(4, self.height - 4, scanline_spacing):
+            phase = (y + self.frame // 6) % 7
+            for x in range(phase, self.width, 7):
+                canvas.put(x, y, ".", self.backdrop_shades[min(7, y * 8 // max(1, self.height))])
+
+        particle_count = self.width * self.height * intensity // 35000
+        for particle in range(particle_count):
+            x = (particle * 47 + self.frame // 8) % self.width
+            y = 3 + (particle * 29 + self.frame // 16) % max(1, self.height - 7)
+            canvas.put(x, y, "·", palette["dim"])
 
     def _draw_water(self, canvas: FrameBuffer) -> None:
         palette = self.palette
@@ -469,6 +530,8 @@ class OceanScene:
 
     def render(self) -> FrameBuffer:
         canvas = FrameBuffer(self.width, self.height)
+        self._draw_backdrop_source(canvas)
+        self._draw_backdrop_effects(canvas)
         self._draw_water(canvas)
         self._draw_habitat(canvas)
         self._draw_bubbles(canvas)

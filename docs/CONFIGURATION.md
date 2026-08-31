@@ -26,6 +26,16 @@ Each species has an independent exact population. Setting a species to zero remo
 | Current | 0.35–1.8× | 1.0× | Horizontal fish velocity multiplier |
 | Telemetry | On/off | On | Header, biomass, palette, and dismissal footer |
 
+## Backdrop layers
+
+| Setting | Range | Default | Effect |
+|---|---:|---:|---|
+| Source | Plain Depth, Pelagic Field | Plain Depth | Base layer behind the habitat |
+| Pelagic effects | On/off | Off | Animated current bands, scanlines, and depth particles |
+| Effect intensity | 0–100% | 55% | Density of the optional effects layer |
+
+The background source and effects are independent. Pelagic effects can run over Plain Depth, Pelagic Field, or future custom sources.
+
 ## Ambience
 
 Audio is off by default. When enabled, `volume` controls the generated stream from 0–100%. Only one monitor instance emits audio.
@@ -68,6 +78,11 @@ Disable automatic immersion to keep tray and manual launching while restoring th
     "bubbleDensity": 55,
     "current": 1.0,
     "showTelemetry": true
+  },
+  "backdrop": {
+    "source": "plain",
+    "effectsEnabled": false,
+    "effectIntensity": 55
   },
   "sound": {
     "enabled": false,
