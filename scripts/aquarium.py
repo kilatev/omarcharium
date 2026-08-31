@@ -9,8 +9,10 @@ which keeps the renderer testable without a compositor or terminal emulator.
 from __future__ import annotations
 
 import argparse
+import base64
 import copy
 import fcntl
+import hashlib
 import json
 import math
 import os
@@ -166,8 +168,13 @@ def normalise_config(raw: Any) -> dict[str, Any]:
     backdrop = merged.get("backdrop", {})
     fallback_backdrop = defaults.get("backdrop", {})
     backdrop_source = str(backdrop.get("source", fallback_backdrop.get("source", "plain")))
-    if backdrop_source not in {"plain", "pelagic"}:
+    if backdrop_source not in {"plain", "pelagic", "image"}:
         backdrop_source = "plain"
+    image_path = backdrop.get("imagePath", fallback_backdrop.get("imagePath", ""))
+    image_path = image_path if isinstance(image_path, str) else ""
+    fit_mode = str(backdrop.get("fitMode", fallback_backdrop.get("fitMode", "cover")))
+    if fit_mode not in {"cover", "contain", "center"}:
+        fit_mode = "cover"
 
     sound = merged.get("sound", {})
     fallback_sound = defaults.get("sound", {})
@@ -184,6 +191,11 @@ def normalise_config(raw: Any) -> dict[str, Any]:
         },
         "backdrop": {
             "source": backdrop_source,
+            "imagePath": image_path,
+            "fitMode": fit_mode,
+            "dimming": int(clamp_number(
+                backdrop.get("dimming"), 0, 90, fallback_backdrop.get("dimming", 45),
+            )),
             "effectsEnabled": backdrop.get("effectsEnabled")
             if isinstance(backdrop.get("effectsEnabled"), bool)
             else bool(fallback_backdrop.get("effectsEnabled", False)),
@@ -296,6 +308,7 @@ class OceanScene:
             mix_rgb(self.palette["background"], self.palette["water"], 0.07 + index * 0.025)
             for index in range(8)
         )
+        self.backdrop_notice = ""
         self._populate()
 
     @property
@@ -528,6 +541,12 @@ class OceanScene:
         if len(footer) + 2 < self.width:
             canvas.text((self.width - len(footer)) // 2, self.height - 1, footer, palette["dim"])
 
+    def _draw_backdrop_notice(self, canvas: FrameBuffer) -> None:
+        if not self.backdrop_notice:
+            return
+        notice = f"[ {self.backdrop_notice} ]"
+        canvas.text(max(1, (self.width - len(notice)) // 2), self.height - 2, notice[: self.width - 2], self.palette["coral"])
+
     def render(self) -> FrameBuffer:
         canvas = FrameBuffer(self.width, self.height)
         self._draw_backdrop_source(canvas)
@@ -537,6 +556,7 @@ class OceanScene:
         self._draw_bubbles(canvas)
         self._draw_fish(canvas)
         self._draw_telemetry(canvas)
+        self._draw_backdrop_notice(canvas)
         return canvas
 
 
@@ -679,6 +699,152 @@ class AmbientAudio:
             self.lock_file = None
 
 
+class RasterBackdrop:
+    """Prepare and place one validated local image through the Kitty protocol."""
+
+    SUPPORTED_SUFFIXES = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
+    MAX_FILE_BYTES = 32 * 1024 * 1024
+    MAX_PIXELS = 24_000_000
+    IMAGE_ID = 7321
+
+    def __init__(self, config: dict[str, Any]) -> None:
+        self.settings = config["backdrop"]
+        self.cached_path: Path | None = None
+        self.error = ""
+
+    @staticmethod
+    def terminal_supported(environment: dict[str, str] | None = None) -> bool:
+        values = os.environ if environment is None else environment
+        identity = " ".join((
+            values.get("TERM_PROGRAM", ""),
+            values.get("TERM", ""),
+        )).lower()
+        return "ghostty" in identity or "kitty" in identity
+
+    def _source_path(self) -> Path | None:
+        raw_path = self.settings.get("imagePath", "")
+        if not isinstance(raw_path, str) or not raw_path or "\x00" in raw_path:
+            self.error = "custom image is not selected · using plain depth"
+            return None
+        try:
+            path = Path(raw_path).expanduser().resolve(strict=True)
+            metadata = path.stat()
+        except OSError:
+            self.error = "custom image is missing or unreadable · using plain depth"
+            return None
+        if not path.is_file() or path.suffix.lower() not in self.SUPPORTED_SUFFIXES:
+            self.error = "custom image type is unsupported · using plain depth"
+            return None
+        if metadata.st_size > self.MAX_FILE_BYTES:
+            self.error = "custom image exceeds 32 MiB · using plain depth"
+            return None
+        return path
+
+    @staticmethod
+    def _magick_prefix() -> list[str]:
+        return [
+            "magick",
+            "-limit", "memory", "128MiB",
+            "-limit", "map", "256MiB",
+            "-limit", "disk", "512MiB",
+        ]
+
+    def prepare(self) -> bool:
+        source = self._source_path()
+        if source is None:
+            return False
+        if shutil.which("magick") is None:
+            self.error = "ImageMagick is unavailable · using plain depth"
+            return False
+
+        try:
+            identified = subprocess.run(
+                ["magick", "identify", *self._magick_prefix()[1:], "-ping", "-format", "%w %h", f"{source}[0]"],
+                check=False, capture_output=True, text=True, timeout=10,
+            )
+            width_text, height_text = identified.stdout.strip().split()
+            source_width, source_height = int(width_text), int(height_text)
+        except (OSError, ValueError, subprocess.TimeoutExpired):
+            self.error = "custom image could not be decoded · using plain depth"
+            return False
+        if identified.returncode != 0 or source_width < 1 or source_height < 1:
+            self.error = "custom image could not be decoded · using plain depth"
+            return False
+        if source_width * source_height > self.MAX_PIXELS:
+            self.error = "custom image exceeds 24 megapixels · using plain depth"
+            return False
+
+        metadata = source.stat()
+        signature = "\0".join((
+            str(source), str(metadata.st_size), str(metadata.st_mtime_ns),
+            self.settings["fitMode"], str(self.settings["dimming"]),
+        ))
+        cache_key = hashlib.sha256(signature.encode("utf-8", "surrogateescape")).hexdigest()
+        cache_root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "omarcharium"
+        cache_root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        output = cache_root / f"backdrop-{cache_key}.png"
+        lock_path = cache_root / f"backdrop-{cache_key}.lock"
+
+        try:
+            with lock_path.open("a+b") as lock_file:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+                if not output.is_file():
+                    temporary = cache_root / f".{cache_key}.{os.getpid()}.tmp"
+                    fit_mode = self.settings["fitMode"]
+                    if fit_mode == "cover":
+                        fit_args = ["-resize", "1920x1080^", "-gravity", "center", "-extent", "1920x1080"]
+                    elif fit_mode == "contain":
+                        fit_args = ["-resize", "1920x1080", "-gravity", "center", "-extent", "1920x1080"]
+                    else:
+                        fit_args = ["-resize", "1920x1080>", "-gravity", "center", "-extent", "1920x1080"]
+                    brightness = (100 - self.settings["dimming"]) / 100
+                    converted = subprocess.run(
+                        [
+                            *self._magick_prefix(), f"{source}[0]", "-auto-orient",
+                            "-background", "black", *fit_args,
+                            "-alpha", "remove", "-evaluate", "multiply", f"{brightness:.2f}",
+                            "-strip", f"png:{temporary}",
+                        ],
+                        check=False, capture_output=True, timeout=30,
+                    )
+                    if converted.returncode != 0 or not temporary.is_file():
+                        temporary.unlink(missing_ok=True)
+                        self.error = "custom image conversion failed · using plain depth"
+                        return False
+                    os.replace(temporary, output)
+        except (OSError, subprocess.TimeoutExpired):
+            self.error = "custom image cache failed · using plain depth"
+            return False
+
+        self.cached_path = output
+        self.error = ""
+        return True
+
+    @classmethod
+    def delete_sequence(cls) -> str:
+        return f"\x1b_Ga=d,d=I,i={cls.IMAGE_ID},q=2;\x1b\\"
+
+    @classmethod
+    def placement_sequence(cls, path: Path, width: int, height: int) -> str:
+        payload = base64.standard_b64encode(os.fsencode(path)).decode("ascii")
+        return (
+            f"\x1b_Ga=T,f=100,t=f,i={cls.IMAGE_ID},c={max(1, width)},r={max(1, height)},"
+            f"z=-1,q=2,C=1;{payload}\x1b\\"
+        )
+
+    def display(self, width: int, height: int) -> None:
+        if self.cached_path is None:
+            return
+        sys.stdout.write(self.delete_sequence())
+        sys.stdout.write(self.placement_sequence(self.cached_path, width, height))
+        sys.stdout.flush()
+
+    def close(self) -> None:
+        if self.cached_path is not None:
+            sys.stdout.write(self.delete_sequence())
+            sys.stdout.flush()
+
+
 class DismissalInput:
     """Classify SGR mouse reports without swallowing keyboard input."""
 
@@ -790,6 +956,15 @@ def run_interactive(config: dict[str, Any], seed: int, sound_override: bool | No
     sound_enabled = config["sound"]["enabled"] if sound_override is None else sound_override
     audio = AmbientAudio(config["sound"]["volume"], runtime_dir)
     dismissal_input = DismissalInput(config["integration"]["exitOnPointerMotion"])
+    raster = RasterBackdrop(config)
+    raster_active = False
+    if config["backdrop"]["source"] == "image":
+        if not raster.terminal_supported():
+            scene.backdrop_notice = "custom images require Ghostty or Kitty · using plain depth"
+        elif raster.prepare():
+            raster_active = True
+        else:
+            scene.backdrop_notice = raster.error
     stop_requested = False
     user_dismissed = False
 
@@ -803,32 +978,42 @@ def run_interactive(config: dict[str, Any], seed: int, sound_override: bool | No
 
     try:
         with TerminalSession(palette["background"]):
-            if sound_enabled:
-                audio.start()
-            started = time.monotonic()
-            previous = started
-            next_frame = started
-            while not stop_requested:
-                now = time.monotonic()
-                if dismissal_input.expired(now):
-                    user_dismissed = True
-                    break
-                if now - started > 0.35 and select.select([sys.stdin], [], [], 0)[0]:
-                    if dismissal_input.feed(os.read(sys.stdin.fileno(), 4096), now):
+            try:
+                if raster_active:
+                    raster.display(width, height)
+                if sound_enabled:
+                    audio.start()
+                started = time.monotonic()
+                previous = started
+                next_frame = started
+                while not stop_requested:
+                    now = time.monotonic()
+                    if dismissal_input.expired(now):
                         user_dismissed = True
                         break
-                new_width, new_height = terminal_size()
-                scene.resize(new_width, new_height)
-                scene.update(now - previous)
-                previous = now
-                sys.stdout.write(scene.render().ansi())
-                sys.stdout.flush()
-                next_frame += 1.0 / 24.0
-                delay = next_frame - time.monotonic()
-                if delay > 0:
-                    time.sleep(delay)
-                else:
-                    next_frame = time.monotonic()
+                    if now - started > 0.35 and select.select([sys.stdin], [], [], 0)[0]:
+                        if dismissal_input.feed(os.read(sys.stdin.fileno(), 4096), now):
+                            user_dismissed = True
+                            break
+                    new_width, new_height = terminal_size()
+                    if (new_width, new_height) != (width, height):
+                        width, height = new_width, new_height
+                        scene.resize(width, height)
+                        if raster_active:
+                            raster.display(width, height)
+                    scene.update(now - previous)
+                    previous = now
+                    sys.stdout.write(scene.render().ansi())
+                    sys.stdout.flush()
+                    next_frame += 1.0 / 24.0
+                    delay = next_frame - time.monotonic()
+                    if delay > 0:
+                        time.sleep(delay)
+                    else:
+                        next_frame = time.monotonic()
+            finally:
+                if raster_active:
+                    raster.close()
     finally:
         audio.close()
         for sig, handler in previous_handlers.items():
@@ -874,6 +1059,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--width", type=int, default=100, help="snapshot width")
     parser.add_argument("--height", type=int, default=32, help="snapshot height")
     parser.add_argument("--check-config", action="store_true", help="print the normalised configuration and exit")
+    parser.add_argument("--check-backdrop", action="store_true", help="validate and prepare the configured custom image")
     parser.add_argument(
         "--audio-test", type=float, nargs="?", const=8.0, default=None, metavar="SECONDS",
         help="play an audible PipeWire diagnostic without requiring a terminal",
@@ -889,6 +1075,14 @@ def main(argv: list[str] | None = None) -> int:
     config = load_config(args.config)
     if args.check_config:
         print(json.dumps(config, indent=2, sort_keys=True))
+        return 0
+    if args.check_backdrop:
+        raster = RasterBackdrop(config)
+        if not raster.prepare():
+            print(f"omarcharium backdrop check failed: {raster.error}", file=sys.stderr)
+            return 4
+        compatibility = "supported" if raster.terminal_supported() else "plain fallback in this terminal"
+        print(f"Omarcharium custom backdrop ready: {raster.cached_path} ({compatibility})")
         return 0
     if args.audio_test is not None:
         return run_audio_test(config, args.audio_test)

@@ -17,7 +17,7 @@ Item {
     schemaVersion: 1,
     species: { neon_tetra: 10, clownfish: 4, angelfish: 3, discus: 3, butterflyfish: 2, royal_tang: 3, betta: 1, puffer: 2 },
     art: { palette: "lagoon", bubbleDensity: 55, current: 1.0, showTelemetry: true },
-    backdrop: { source: "plain", effectsEnabled: false, effectIntensity: 55 },
+    backdrop: { source: "plain", imagePath: "", fitMode: "cover", dimming: 45, effectsEnabled: false, effectIntensity: 55 },
     sound: { enabled: false, volume: 24 },
     integration: { idleEnabled: true, exitOnPointerMotion: true }
   })
@@ -39,6 +39,7 @@ Item {
   readonly property string configDir: Quickshell.env("HOME") + "/.config/omarcharium"
   readonly property string configPath: configDir + "/config.json"
   readonly property string launcherPath: pluginDir + "/scripts/launch-aquarium"
+  readonly property string selectorPath: pluginDir + "/scripts/select-backdrop"
   readonly property string fontFamily: "monospace"
   readonly property color accent: paletteAccent(config && config.art ? config.art.palette : "lagoon")
   readonly property int totalFish: countFish()
@@ -91,7 +92,11 @@ Item {
     next.art.showTelemetry = art.showTelemetry === undefined ? defaults.art.showTelemetry : !!art.showTelemetry
     var backdrop = incoming.backdrop && typeof incoming.backdrop === "object" ? incoming.backdrop : ({})
     var backdropSource = String(backdrop.source || defaults.backdrop.source)
-    next.backdrop.source = backdropSource === "pelagic" ? "pelagic" : "plain"
+    next.backdrop.source = ["pelagic", "image"].indexOf(backdropSource) >= 0 ? backdropSource : "plain"
+    next.backdrop.imagePath = typeof backdrop.imagePath === "string" ? backdrop.imagePath : defaults.backdrop.imagePath
+    var fitMode = String(backdrop.fitMode || defaults.backdrop.fitMode)
+    next.backdrop.fitMode = ["cover", "contain", "center"].indexOf(fitMode) >= 0 ? fitMode : "cover"
+    next.backdrop.dimming = Math.round(clamp(backdrop.dimming, 0, 90, defaults.backdrop.dimming))
     next.backdrop.effectsEnabled = typeof backdrop.effectsEnabled === "boolean" ? backdrop.effectsEnabled : defaults.backdrop.effectsEnabled
     next.backdrop.effectIntensity = Math.round(clamp(backdrop.effectIntensity, 0, 100, defaults.backdrop.effectIntensity))
     var sound = incoming.sound && typeof incoming.sound === "object" ? incoming.sound : ({})
@@ -147,6 +152,21 @@ Item {
   function changeBackdrop(key, value) {
     var next = clone(config)
     next.backdrop[key] = value
+    config = normalise(next)
+    persist()
+  }
+
+  function selectBackdropImage() {
+    if (!pluginDir || backdropPicker.running) return
+    statusLine = "OPENING OMARCHY IMAGE PICKER..."
+    backdropPicker.command = [selectorPath, config.backdrop.imagePath]
+    backdropPicker.running = true
+  }
+
+  function clearBackdropImage() {
+    var next = clone(config)
+    next.backdrop.imagePath = ""
+    if (next.backdrop.source === "image") next.backdrop.source = "plain"
     config = normalise(next)
     persist()
   }
@@ -226,6 +246,27 @@ Item {
       root.statusLine = exitCode === 0
         ? "AUDIO TEST COMPLETE"
         : "AUDIO TEST FAILED · RUN --audio-test IN A TERMINAL FOR DETAILS"
+    }
+  }
+
+  Process {
+    id: backdropPicker
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var selected = String(text || "").replace(/\n+$/, "")
+        if (!selected) return
+        var next = root.clone(root.config)
+        next.backdrop.imagePath = selected
+        next.backdrop.source = "image"
+        root.config = root.normalise(next)
+        root.persist()
+      }
+    }
+    onExited: function(exitCode) {
+      root.statusLine = exitCode === 0
+        ? "CUSTOM BACKDROP SYNCHRONIZED"
+        : "IMAGE PICKER CLOSED WITHOUT A SELECTION"
     }
   }
 
@@ -707,7 +748,7 @@ Item {
 
           Rectangle {
             width: parent.width
-            height: 164
+            height: 334
             radius: 11
             color: "#160c252d"
             border.width: 1
@@ -719,47 +760,112 @@ Item {
               spacing: 8
               Repeater {
                 model: [
-                  { key: "plain", label: "PLAIN DEPTH" },
-                  { key: "pelagic", label: "PELAGIC FIELD" }
+                  { key: "plain", label: "PLAIN" },
+                  { key: "pelagic", label: "PELAGIC" },
+                  { key: "image", label: "IMAGE" }
                 ]
                 Rectangle {
                   id: backdropChip
                   required property var modelData
-                  width: 142; height: 32; radius: 7
+                  width: 108; height: 32; radius: 7
                   color: root.config.backdrop.source === backdropChip.modelData.key ? root.accent : "#16ffffff"
                   border.width: 1
                   border.color: root.accent
-                  Text {
-                    anchors.centerIn: parent
-                    text: backdropChip.modelData.label
-                    color: root.config.backdrop.source === backdropChip.modelData.key ? "#071218" : root.accent
-                    font.family: root.fontFamily
-                    font.pixelSize: 10
-                    font.bold: true
+                  Text { anchors.centerIn: parent; text: backdropChip.modelData.label; color: root.config.backdrop.source === backdropChip.modelData.key ? "#071218" : root.accent; font.family: root.fontFamily; font.pixelSize: 10; font.bold: true }
+                  MouseArea {
+                    anchors.fill: parent
+                    onClicked: {
+                      if (backdropChip.modelData.key === "image" && !root.config.backdrop.imagePath) root.selectBackdropImage()
+                      else root.changeBackdrop("source", backdropChip.modelData.key)
+                    }
                   }
-                  MouseArea { anchors.fill: parent; onClicked: root.changeBackdrop("source", backdropChip.modelData.key) }
                 }
               }
             }
 
-            Text { x: 16; y: 91; text: "PELAGIC EFFECT OVERLAY"; color: "#a9c6cc"; font.family: root.fontFamily; font.pixelSize: 11 }
             Rectangle {
-              x: 180; y: 84
-              width: 48; height: 26; radius: 13
-              color: root.config.backdrop.effectsEnabled ? root.accent : "#31454b"
-              Rectangle {
-                x: root.config.backdrop.effectsEnabled ? parent.width - width - 3 : 3
-                anchors.verticalCenter: parent.verticalCenter
-                width: 20; height: 20; radius: 10
-                color: root.config.backdrop.effectsEnabled ? "#071218" : "#aec4c9"
-                Behavior on x { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+              x: 16; y: 82
+              width: 176; height: 92; radius: 7
+              color: "#0d020b10"
+              border.width: 1; border.color: "#35596b73"
+              clip: true
+              Image {
+                anchors.fill: parent
+                source: root.config.backdrop.imagePath ? "file://" + root.config.backdrop.imagePath : ""
+                sourceSize.width: 352
+                sourceSize.height: 184
+                fillMode: Image.PreserveAspectCrop
+                visible: root.config.backdrop.imagePath !== ""
+                asynchronous: true
+                cache: false
               }
-              MouseArea { anchors.fill: parent; onClicked: root.changeBackdrop("effectsEnabled", !root.config.backdrop.effectsEnabled) }
+              Rectangle { anchors.fill: parent; color: "#59000000"; visible: root.config.backdrop.imagePath !== "" }
+              Text { anchors.centerIn: parent; width: parent.width - 18; text: root.config.backdrop.imagePath ? "SELECTED IMAGE" : "NO IMAGE SELECTED"; color: "#b8d4d8"; font.family: root.fontFamily; font.pixelSize: 10; font.bold: true; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap }
             }
 
-            Text { x: 16; y: 132; text: "EFFECT INTENSITY"; color: "#a9c6cc"; font.family: root.fontFamily; font.pixelSize: 11 }
+            Rectangle {
+              x: 208; y: 82
+              width: 118; height: 36; radius: 7
+              color: backdropPicker.running ? "#335ce6df" : "#1cffffff"
+              border.width: 1; border.color: "#47778a92"
+              Text { anchors.centerIn: parent; text: backdropPicker.running ? "OPENING..." : "CHOOSE IMAGE"; color: root.accent; font.family: root.fontFamily; font.pixelSize: 10; font.bold: true }
+              MouseArea { anchors.fill: parent; enabled: !backdropPicker.running; onClicked: root.selectBackdropImage() }
+            }
+            Rectangle {
+              x: 208; y: 128
+              width: 118; height: 36; radius: 7
+              color: "#1cffffff"
+              border.width: 1; border.color: "#47778a92"
+              Text { anchors.centerIn: parent; text: "CLEAR IMAGE"; color: "#b6d0d5"; font.family: root.fontFamily; font.pixelSize: 10; font.bold: true }
+              MouseArea { anchors.fill: parent; enabled: root.config.backdrop.imagePath !== ""; onClicked: root.clearBackdropImage() }
+            }
+            Text { x: 342; y: 87; width: parent.width - 358; text: root.config.backdrop.imagePath || "Omarchy picker scans Pictures, Downloads, and Home"; color: "#718f98"; font.family: root.fontFamily; font.pixelSize: 9; elide: Text.ElideMiddle; wrapMode: Text.Wrap }
+            Text { x: 342; y: 139; width: parent.width - 358; text: "native raster: Ghostty + Kitty · plain fallback: Alacritty + Foot"; color: "#5f8993"; font.family: root.fontFamily; font.pixelSize: 9; wrapMode: Text.Wrap }
+
+            Text { x: 16; y: 194; text: "IMAGE FIT"; color: "#a9c6cc"; font.family: root.fontFamily; font.pixelSize: 11 }
             Row {
-              anchors { right: parent.right; rightMargin: 16; top: parent.top; topMargin: 122 }
+              x: 104; y: 184
+              spacing: 7
+              Repeater {
+                model: ["cover", "contain", "center"]
+                Rectangle {
+                  id: fitChip
+                  required property string modelData
+                  width: 82; height: 30; radius: 6
+                  color: root.config.backdrop.fitMode === fitChip.modelData ? "#335ce6df" : "#1cffffff"
+                  Text { anchors.centerIn: parent; text: fitChip.modelData.toUpperCase(); color: root.config.backdrop.fitMode === fitChip.modelData ? root.accent : "#91adb3"; font.family: root.fontFamily; font.pixelSize: 9; font.bold: true }
+                  MouseArea { anchors.fill: parent; onClicked: root.changeBackdrop("fitMode", fitChip.modelData) }
+                }
+              }
+            }
+
+            Text { x: 16; y: 239; text: "IMAGE DIMMING"; color: "#a9c6cc"; font.family: root.fontFamily; font.pixelSize: 11 }
+            Row {
+              anchors { right: parent.right; rightMargin: 16; top: parent.top; topMargin: 229 }
+              spacing: 8
+              Rectangle {
+                width: 34; height: 30; radius: 6; color: "#1cffffff"
+                Text { anchors.centerIn: parent; text: "−"; color: "#cce8ec"; font.family: root.fontFamily; font.pixelSize: 17 }
+                MouseArea { anchors.fill: parent; onClicked: root.changeBackdrop("dimming", root.config.backdrop.dimming - 5) }
+              }
+              Text { width: 54; height: 30; text: root.config.backdrop.dimming + "%"; color: root.accent; font.family: root.fontFamily; font.pixelSize: 14; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+              Rectangle {
+                width: 34; height: 30; radius: 6; color: "#1cffffff"
+                Text { anchors.centerIn: parent; text: "+"; color: "#cce8ec"; font.family: root.fontFamily; font.pixelSize: 16 }
+                MouseArea { anchors.fill: parent; onClicked: root.changeBackdrop("dimming", root.config.backdrop.dimming + 5) }
+              }
+            }
+
+            Text { x: 16; y: 286; text: "PELAGIC EFFECT OVERLAY"; color: "#a9c6cc"; font.family: root.fontFamily; font.pixelSize: 11 }
+            Rectangle {
+              x: 180; y: 278
+              width: 48; height: 26; radius: 13
+              color: root.config.backdrop.effectsEnabled ? root.accent : "#31454b"
+              Rectangle { x: root.config.backdrop.effectsEnabled ? parent.width - width - 3 : 3; anchors.verticalCenter: parent.verticalCenter; width: 20; height: 20; radius: 10; color: root.config.backdrop.effectsEnabled ? "#071218" : "#aec4c9"; Behavior on x { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } } }
+              MouseArea { anchors.fill: parent; onClicked: root.changeBackdrop("effectsEnabled", !root.config.backdrop.effectsEnabled) }
+            }
+            Row {
+              anchors { right: parent.right; rightMargin: 16; top: parent.top; topMargin: 276 }
               spacing: 8
               Rectangle {
                 width: 34; height: 30; radius: 6; color: "#1cffffff"

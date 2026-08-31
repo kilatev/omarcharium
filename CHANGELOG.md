@@ -2,6 +2,14 @@
 
 All notable changes are documented here. This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.0.3] - 2026-08-31
+
+### Added
+
+- Omarchy-native image picker and control-room preview for custom aquarium backdrops.
+- Bounded ImageMagick preprocessing with fit, dimming, atomic caching, and invalid-file fallback.
+- Native negative-z raster placement in Ghostty and Kitty with an explicit plain-depth fallback elsewhere.
+
 ## [1.0.2] - 2026-08-31
 
 ### Added
@@ -33,6 +41,7 @@ All notable changes are documented here. This project follows [Semantic Versioni
 - Deterministic renderer snapshots, configuration normalization, and behavioral tests.
 - Marketplace manifest, preview artwork, actual screenshots, contributor guide, security policy, and CI validation.
 
+[1.0.3]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.3
 [1.0.2]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.2
 [1.0.1]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.1
 [1.0.0]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.0

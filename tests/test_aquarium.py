@@ -55,6 +55,20 @@ class ConfigurationTests(unittest.TestCase):
         defaults = json.loads((ROOT / "defaults.json").read_text(encoding="utf-8"))
         self.assertEqual(config, defaults)
 
+    def test_image_backdrop_settings_are_normalized(self) -> None:
+        config = AQUARIUM.normalise_config({
+            "backdrop": {
+                "source": "image",
+                "imagePath": "/tmp/reef image.png",
+                "fitMode": "invalid",
+                "dimming": -20,
+            },
+        })
+        self.assertEqual(config["backdrop"]["source"], "image")
+        self.assertEqual(config["backdrop"]["imagePath"], "/tmp/reef image.png")
+        self.assertEqual(config["backdrop"]["fitMode"], "cover")
+        self.assertEqual(config["backdrop"]["dimming"], 0)
+
 
 class RendererTests(unittest.TestCase):
     def test_mirroring_is_an_involution_for_every_fish_frame(self) -> None:
@@ -109,6 +123,45 @@ class RendererTests(unittest.TestCase):
                 self.assertIn("·", scene.render().plain())
 
 
+class RasterBackdropTests(unittest.TestCase):
+    def test_source_validation_accepts_only_bounded_local_images(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image = root / "reef image.png"
+            image.write_bytes(b"not decoded during path validation")
+            config = AQUARIUM.normalise_config({
+                "backdrop": {"source": "image", "imagePath": str(image)},
+            })
+            raster = AQUARIUM.RasterBackdrop(config)
+            self.assertEqual(raster._source_path(), image.resolve())
+
+            text = root / "reef.txt"
+            text.write_text("not an image", encoding="utf-8")
+            config["backdrop"]["imagePath"] = str(text)
+            rejected = AQUARIUM.RasterBackdrop(config)
+            self.assertIsNone(rejected._source_path())
+            self.assertIn("unsupported", rejected.error)
+
+    def test_missing_image_uses_a_clear_fallback(self) -> None:
+        config = AQUARIUM.normalise_config({
+            "backdrop": {"source": "image", "imagePath": "/definitely/missing/reef.png"},
+        })
+        raster = AQUARIUM.RasterBackdrop(config)
+        self.assertFalse(raster.prepare())
+        self.assertIn("using plain depth", raster.error)
+
+    def test_terminal_compatibility_and_protocol_placement_are_explicit(self) -> None:
+        self.assertTrue(AQUARIUM.RasterBackdrop.terminal_supported({"TERM_PROGRAM": "ghostty"}))
+        self.assertTrue(AQUARIUM.RasterBackdrop.terminal_supported({"TERM": "xterm-kitty"}))
+        self.assertFalse(AQUARIUM.RasterBackdrop.terminal_supported({"TERM": "xterm-256color"}))
+
+        sequence = AQUARIUM.RasterBackdrop.placement_sequence(Path("/tmp/reef.png"), 120, 36)
+        self.assertIn("a=T", sequence)
+        self.assertIn("t=f", sequence)
+        self.assertIn("z=-1", sequence)
+        self.assertIn("c=120,r=36", sequence)
+
+
 class DismissalInputTests(unittest.TestCase):
     def test_pointer_motion_follows_setting(self) -> None:
         report = b"\x1b[<35;42;9M"
@@ -141,6 +194,7 @@ class AudioTests(unittest.TestCase):
     def test_audio_test_defaults_to_eight_seconds_without_a_tty(self) -> None:
         arguments = AQUARIUM.parse_args(["--audio-test"])
         self.assertEqual(arguments.audio_test, 8.0)
+        self.assertTrue(AQUARIUM.parse_args(["--check-backdrop"]).check_backdrop)
 
 
 class IdleIntegrationTests(unittest.TestCase):

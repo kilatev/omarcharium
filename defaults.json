@@ -18,6 +18,9 @@
   },
   "backdrop": {
     "source": "plain",
+    "imagePath": "",
+    "fitMode": "cover",
+    "dimming": 45,
     "effectsEnabled": false,
     "effectIntensity": 55
   },

@@ -70,6 +70,7 @@ Omarcharium targets the current Omarchy Quattro shell and uses tools already pre
 - Alacritty, Foot, Ghostty, or Kitty
 - Hyprland, `jq`, and `socat`
 - PipeWire's `pw-cat` only when procedural ambience is enabled
+- ImageMagick's `magick` only when custom raster or ASCII-fied backdrops are selected
 
 No Python package, compiled extension, bundled recording, network service, or second Quickshell process is required.
 
@@ -112,7 +113,7 @@ The control room writes settings atomically to:
 ~/.config/omarcharium/config.json
 ```
 
-Every species has an exact independent population. The water column controls palette, bubbles, current velocity, and terminal telemetry. Backdrop controls select Plain Depth or the palette-aware Pelagic Field, plus an independently configurable animated-effects overlay. Ambience controls generation and volume. Surface controls can keep the reef visible during pointer movement while clicks and keyboard input continue to dismiss it.
+Every species has an exact independent population. The water column controls palette, bubbles, current velocity, and terminal telemetry. Backdrop controls select Plain Depth, Pelagic Field, or a local image through Omarchy's native image picker, with fit, dimming, and independently layered pelagic effects. Ambience controls generation and volume. Surface controls can keep the reef visible during pointer movement while clicks and keyboard input continue to dismiss it.
 
 See the complete [configuration reference](docs/CONFIGURATION.md) for limits, defaults, JSON schema, and diagnostics.
 

@@ -1,0 +1,19 @@
+#!/bin/bash
+set -euo pipefail
+
+selected=${1:-}
+selection_file=$(mktemp --tmpdir omarcharium-selection.XXXXXX)
+done_file=$(mktemp --tmpdir omarcharium-selection-done.XXXXXX)
+rm -f "$done_file"
+trap 'rm -f "$selection_file" "$done_file"' EXIT
+
+image_dirs=$(printf '%s\n%s\n%s' "$HOME/Pictures" "$HOME/Downloads" "$HOME")
+omarchy-shell image-selector open "$image_dirs" "" "$selected" "$selection_file" "$done_file" true true >/dev/null
+
+while [[ ! -e $done_file ]]; do
+  sleep 0.1
+done
+
+if [[ -s $selection_file ]]; then
+  cat "$selection_file"
+fi

@@ -30,11 +30,16 @@ Each species has an independent exact population. Setting a species to zero remo
 
 | Setting | Range | Default | Effect |
 |---|---:|---:|---|
-| Source | Plain Depth, Pelagic Field | Plain Depth | Base layer behind the habitat |
+| Source | Plain Depth, Pelagic Field, Custom Image | Plain Depth | Base layer behind the habitat |
+| Image path | Local JPEG, PNG, GIF, BMP, or WebP | Empty | Selected image; only the first animated frame is used |
+| Image fit | Cover, contain, center | Cover | Preprocessing crop and placement behavior |
+| Image dimming | 0–90% | 45% | Reduces image brightness beneath fish and telemetry |
 | Pelagic effects | On/off | Off | Animated current bands, scanlines, and depth particles |
 | Effect intensity | 0–100% | 55% | Density of the optional effects layer |
 
-The background source and effects are independent. Pelagic effects can run over Plain Depth, Pelagic Field, or future custom sources.
+The background source and effects are independent. Pelagic effects can run over Plain Depth, Pelagic Field, or a custom image.
+
+**Custom Image** uses Omarchy's fullscreen image picker. The renderer accepts local files only, limits inputs to 32 MiB and 24 megapixels, preprocesses once through ImageMagick, and caches the dimmed fit under `~/.cache/omarcharium/`. Ghostty and Kitty receive the cached PNG through the Kitty graphics protocol at negative z-order. Alacritty and Foot display a clear plain-depth fallback while preserving habitat, fish, telemetry, and optional effects.
 
 ## Ambience
 
@@ -81,6 +86,9 @@ Disable automatic immersion to keep tray and manual launching while restoring th
   },
   "backdrop": {
     "source": "plain",
+    "imagePath": "",
+    "fitMode": "cover",
+    "dimming": 45,
     "effectsEnabled": false,
     "effectIntensity": 55
   },
@@ -105,6 +113,9 @@ python3 scripts/aquarium.py --check-config
 
 # Produce deterministic plain-text art without opening a terminal surface
 python3 scripts/aquarium.py --snapshot --width 120 --height 36 --seed 7
+
+# Validate and cache the configured custom image
+python3 scripts/aquarium.py --check-backdrop
 
 # Force or suppress audio for an interactive terminal run
 python3 scripts/aquarium.py --sound
