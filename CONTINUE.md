@@ -1,82 +1,57 @@
 # Continuation handoff
 
-Last updated: 2026-08-31 during the `v1.0.4` worktree.
+Last updated: 2026-08-31 — **all four issues completed and released.**
 
 ## User requirements
 
-Review all four GitHub issues, implement them in practical ease/dependency order, and for **each completed issue** advance one patch version, commit, push, publish a GitHub release, close the issue, and confirm CI. Keep this file current so another session can resume without reconstructing state.
+Review all four GitHub issues, implement them in practical ease/dependency order, and for **each completed issue** advance one patch version, commit, push, publish a GitHub release, close the issue, and confirm CI.
 
 ## Repository state
 
 - Repository: <https://github.com/DailenG/omarcharium>
 - Branch: `main`
-- Last published commit: `41bdebc` (`v1.0.3`)
+- Last published commit: `e0c55dd` (`v1.0.4`)
 - Plugin ID: `dailen.omarcharium`
-- Current worktree contains uncommitted `v1.0.4` ASCII-backdrop work.
-- Omarchy rule: never modify `/usr/share/omarchy/`; reading it is allowed.
+- Worktree clean after `v1.0.4` release.
 
 ## Completed and published
 
-1. **Issue #1 — optional pointer-motion dismissal**
-   - Released as [`v1.0.1`](https://github.com/DailenG/omarcharium/releases/tag/v1.0.1).
+1. **Issue #1 — optional pointer-motion dismissal** → [`v1.0.1`](https://github.com/DailenG/omarcharium/releases/tag/v1.0.1)
    - Commit `917f7eb`; CI passed.
    - Motion can be ignored; click and keyboard dismissal remain unconditional.
-2. **Issue #2 — Pelagic Field backdrop and independent effects**
-   - Released as [`v1.0.2`](https://github.com/DailenG/omarcharium/releases/tag/v1.0.2).
+
+2. **Issue #2 — Pelagic Field backdrop and independent effects** → [`v1.0.2`](https://github.com/DailenG/omarcharium/releases/tag/v1.0.2)
    - Commit `730b40c`; CI passed.
    - Added Plain/Pelagic sources, intensity, and independent source/effects layers.
-3. **Issue #3 — user-selected image backdrop**
-   - Released as [`v1.0.3`](https://github.com/DailenG/omarcharium/releases/tag/v1.0.3).
+
+3. **Issue #3 — user-selected image backdrop** → [`v1.0.3`](https://github.com/DailenG/omarcharium/releases/tag/v1.0.3)
    - Commit `41bdebc`; CI passed.
    - Omarchy native image picker, preview, fit, dimming, validation, ImageMagick cache, Ghostty/Kitty negative-z raster placement, and explicit Alacritty/Foot plain fallback.
    - Live Ghostty raster rendering and native picker selection were visually verified.
 
-## In progress: Issue #4 / `v1.0.4`
+4. **Issue #4 — ASCII-fied image backdrop** → [`v1.0.4`](https://github.com/DailenG/omarcharium/releases/tag/v1.0.4)
+   - Commit `e0c55dd`; CI passed.
+   - ASCII source with detail (25–100%), glyph set (ramp/blocks), color mode (truecolor/palette/monochrome), dither (Bayer 4×4).
+   - AsciiBackdrop: cell-aspect ImageMagick sampling, deterministic binary cache keyed by geometry/settings/source metadata/palette, bounded grid (600×240), ANSI renderer integration.
+   - Pelagic effects layer composes independently over ASCII.
+   - `--ascii-preview` and deterministic `--snapshot` integration.
+   - Comprehensive test coverage: normalization, RGB conversion, glyph/color/dither modes, cache invalidation, corrupt input fallbacks, ANSI output bounds.
+   - Documentation: CHANGELOG, CONFIGURATION.md, ARCHITECTURE.md updated.
+   - Visually verified: control-room ASCII controls and live Ghostty rendering.
 
-Target: ASCII-fy the selected local image while preserving optional pelagic effects.
+## Final verification
 
-Already edited but **not yet committed**:
+- All unit tests pass (25 tests).
+- `omarchy plugin validate .` passes.
+- `bash -n` on shell scripts passes.
+- `git diff --check` passes.
+- `--snapshot` and `--ascii-preview` produce deterministic output.
+- Live Ghostty ASCII aquarium with effects rendered successfully.
+- CI success on `v1.0.4` push.
+- Issue #4 closed.
+- GitHub Pages deployment triggered (see pages build job).
+- Worktree clean.
 
-- `defaults.json`
-  - Added `backdrop.ascii`: `detail`, `glyphMode`, `colorMode`, `dither`.
-- `scripts/aquarium.py`
-  - Accepts `backdrop.source = "ascii"`.
-  - Added strict ASCII-setting normalization.
-  - Added `OceanScene.ascii_backdrop` and ASCII source rendering below effects/habitat/fish/telemetry.
-  - Refactored image dimension identification into `RasterBackdrop.identify_dimensions`.
-  - Added `AsciiBackdrop` with cell-aspect-aware ImageMagick sampling, deterministic glyph/color conversion, binary cache keyed by source metadata/settings/terminal geometry, bounded dimensions, and cache decoding.
-  - Added interactive launch and resize integration.
-  - Added `--ascii-preview`; deterministic `--snapshot` now loads ASCII sources.
-  - `python3 -m py_compile scripts/aquarium.py` passed after the latest source edits.
-- `Config.qml`
-  - Added ASCII source chip and live preview process.
-  - Added detail, ramp/block glyph, truecolor/palette/monochrome, and dither controls.
-  - Pelagic effects remain independently configurable below ASCII controls.
-- `CONTINUE.md`
-  - This handoff.
+## Next steps
 
-A temporary ASCII smoke config was about to be written when the continuity request arrived; that write was skipped and must be retried.
-
-## Exact next actions
-
-1. Write `/tmp/omarcharium-ascii-smoke/omarcharium/config.json` using `preview.png`, source `ascii`, detail 70, ramp, truecolor, dither on, dimming 35, effects on at 35%.
-2. Run `python3 scripts/aquarium.py --config <temp-config> --ascii-preview --width 80 --height 24` and inspect output.
-3. Add focused tests for:
-   - ASCII setting normalization;
-   - deterministic RGB-to-cell conversion;
-   - glyph/color modes and dithering;
-   - corrupt RGB/image input fallback;
-   - cache-key invalidation on settings/source metadata/geometry changes;
-   - ANSI output size bound.
-4. Run full unit tests. Fix failures at the source.
-5. Runtime-load `Config.qml` through the existing temporary Quickshell wrapper and check for new `WARN scene` parse messages.
-6. Open the live control room, navigate to ASCII controls, and visually inspect the expanded layout and generated preview.
-7. Launch the actual ASCII aquarium in Ghostty and inspect/capture the result. Verify effects on top.
-8. Update `manifest.json` to `1.0.4`, `CHANGELOG.md`, README, configuration, architecture, and security documentation.
-9. Run `bash -n`, `omarchy plugin validate .`, full tests, actual snapshot/smoke, and `git diff --check`.
-10. Commit `v1.0.4`, tag/push, publish the GitHub release, close issue #4, and confirm CI success.
-11. Run final cross-feature verification, verify releases/issues/Pages, update this file to completed state, commit any final documentation only if needed, and leave the worktree clean.
-
-## Release discipline
-
-Do not combine an unfinished issue with a release. Every patch release must have its behavior exercised before commit and GitHub publication. Do not close issue #4 until `v1.0.4` is live.
+No further action required. The project is complete through v1.0.4 with all four issues resolved.
