@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  behavior:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.14"]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Run behavioral tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Compile renderer
+        run: python -m py_compile scripts/aquarium.py
+
+      - name: Exercise deterministic renderer
+        run: python scripts/aquarium.py --snapshot --width 100 --height 30 --seed 7 > /tmp/omarcharium-snapshot.txt
+
+      - name: Validate shell syntax
+        run: bash -n scripts/launch-aquarium scripts/idle-integration
+
+  package:
+    name: Marketplace structure
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate manifest contract and entry points
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path.cwd().resolve()
+          manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+          required = {"schemaVersion", "id", "name", "version", "author", "description", "kinds", "entryPoints"}
+          missing = required - manifest.keys()
+          assert not missing, f"missing manifest fields: {sorted(missing)}"
+          assert manifest["schemaVersion"] == 1
+          assert manifest["id"] == "dailen.omarcharium"
+          assert set(manifest["kinds"]) == {"service", "overlay"}
+          for kind, relative in manifest["entryPoints"].items():
+              path = (root / relative).resolve()
+              assert path.is_relative_to(root), f"{kind} entry point escapes repository"
+              assert path.is_file(), f"{kind} entry point does not exist: {relative}"
+          symlinks = [str(path.relative_to(root)) for path in root.rglob("*") if path.is_symlink()]
+          assert not symlinks, f"Marketplace packages cannot contain symlinks: {symlinks}"
+          print(f"validated {manifest['id']} {manifest['version']}")
+          PY
+
+      - name: Confirm required publication assets
+        run: test -s README.md && test -s LICENSE && test -s preview.png && test -s SECURITY.md

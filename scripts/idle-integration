@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+state_home=${XDG_STATE_HOME:-"$HOME/.local/state"}
+toggle_dir="$state_home/omarchy/toggles"
+toggle="$toggle_dir/screensaver-off"
+owner_dir="$state_home/omarcharium"
+owner="$owner_dir/owns-screensaver-off"
+
+case ${1:-status} in
+  enable)
+    mkdir -p "$toggle_dir" "$owner_dir"
+    if [[ ! -e $toggle ]]; then
+      : >"$toggle"
+      : >"$owner"
+    fi
+    ;;
+  disable)
+    if [[ -e $owner ]]; then
+      rm -f "$toggle" "$owner"
+    fi
+    ;;
+  status)
+    if [[ -e $owner ]]; then
+      printf '%s\n' owned
+    elif [[ -e $toggle ]]; then
+      printf '%s\n' user-disabled
+    else
+      printf '%s\n' stock-enabled
+    fi
+    ;;
+  *)
+    printf 'usage: %s {enable|disable|status}\n' "${0##*/}" >&2
+    exit 2
+    ;;
+esac

@@ -1,0 +1,69 @@
+name: Bug report
+description: Report reproducible behavior in Omarcharium
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve Omarcharium. Remove private paths or system details you do not want published.
+
+  - type: input
+    id: version
+    attributes:
+      label: Omarcharium version
+      placeholder: 1.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: omarchy
+    attributes:
+      label: Omarchy version
+      description: Output of `omarchy version`
+    validations:
+      required: true
+
+  - type: dropdown
+    id: terminal
+    attributes:
+      label: Terminal
+      options: [Ghostty, Alacritty, Foot, Kitty, Other]
+    validations:
+      required: true
+
+  - type: textarea
+    id: behavior
+    attributes:
+      label: What happened?
+      description: State the observable result and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Open the tray control room
+        2. Configure …
+        3. Begin immersion
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Relevant diagnostics
+      description: Paste sanitized renderer output, shell logs, or `--check-config` output. Never include unrelated secrets.
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I tested the latest release.
+          required: true
+        - label: I searched existing issues for this behavior.
+          required: true

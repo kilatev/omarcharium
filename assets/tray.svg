@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#76e6ff"/>
+      <stop offset="0.48" stop-color="#13a8c7"/>
+      <stop offset="1" stop-color="#07506b"/>
+    </linearGradient>
+    <linearGradient id="fish" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#ffe66d"/>
+      <stop offset="1" stop-color="#ff6b8a"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#water)" d="M8 7h48v42c0 5-4 9-9 9H17c-5 0-9-4-9-9z"/>
+  <path fill="none" stroke="#e8fbff" stroke-width="3" stroke-linecap="round" opacity=".85" d="M13 16c7-5 13 5 20 0s13 5 19 0"/>
+  <path fill="#082f43" opacity=".55" d="M8 48c8-4 13 5 22 0 10-6 17 5 26-1v11H8z"/>
+  <path fill="url(#fish)" d="M42 31c-5-7-16-8-23-2l-8-5 2 9-2 9 8-5c7 6 18 5 23-2l7 4-2-7 2-7z"/>
+  <circle cx="37" cy="31" r="2.2" fill="#072c3d"/>
+  <path fill="none" stroke="#fff4ba" stroke-width="2" stroke-linecap="round" opacity=".8" d="M22 28c3 2 3 6 0 8"/>
+  <circle cx="48" cy="12" r="3" fill="none" stroke="#d9f9ff" stroke-width="2" opacity=".9"/>
+  <circle cx="41" cy="9" r="1.5" fill="#d9f9ff" opacity=".8"/>
+</svg>

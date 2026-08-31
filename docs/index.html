@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#04151d">
+  <meta name="description" content="Omarcharium is a living TTE-inspired tropical aquarium screensaver for Omarchy.">
+  <title>Omarcharium — Pelagic Terminal Environment</title>
+  <link rel="icon" href="assets/tray.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="scanlines" aria-hidden="true"></div>
+  <header class="nav-shell">
+    <nav aria-label="Primary navigation">
+      <a class="brand" href="#top" aria-label="Omarcharium home">
+        <img src="assets/tray.svg" alt="">
+        <span>OMARCHARIUM</span>
+      </a>
+      <div class="nav-links">
+        <a href="#experience">Experience</a>
+        <a href="#control-room">Control room</a>
+        <a href="#install">Install</a>
+        <a href="https://github.com/DailenG/omarcharium">GitHub</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="hero-glow" aria-hidden="true"></div>
+      <div class="hero-copy">
+        <p class="eyebrow">PELAGIC TERMINAL ENVIRONMENT // OMARCHY QUATTRO</p>
+        <h1>A reef that lives<br><span>inside your terminal.</span></h1>
+        <p class="lede">Eight tropical species. A procedural habitat. Optional synthesized ambience. One meticulously integrated screensaver for every monitor.</p>
+        <div class="hero-actions">
+          <a class="button primary" href="#install">Begin immersion</a>
+          <a class="button ghost" href="https://github.com/DailenG/omarcharium">View source</a>
+        </div>
+        <div class="signal-row" aria-label="Project properties">
+          <span>ANSI TRUECOLOR</span><span>24 FPS</span><span>8 SPECIES</span><span>ZERO PACKAGES</span>
+        </div>
+      </div>
+      <figure class="hero-frame">
+        <img src="assets/hero.webp" alt="Artistic rendition of the Omarcharium terminal reef">
+        <figcaption><span>BIOMASS 28</span><span>LAGOON DEPTH</span></figcaption>
+      </figure>
+    </section>
+
+    <section id="experience" class="section experience">
+      <div class="section-heading">
+        <p class="eyebrow">01 // THE EXPERIENCE</p>
+        <h2>Terminal art with a pulse.</h2>
+        <p>Omarcharium treats character cells as a living medium: motion, color, depth, and restraint instead of a looping video or static effect.</p>
+      </div>
+      <div class="feature-grid">
+        <article><span class="feature-index">01</span><h3>Distinct life</h3><p>Neon tetras school. Bettas trail silk-like fins. Puffers drift. Angels rise through the water column. Every species has its own visual and motion grammar.</p></article>
+        <article><span class="feature-index">02</span><h3>Procedural habitat</h3><p>Caustics, plankton, bubbles, kelp, coral, sand, and rocks evolve continuously from bounded deterministic systems.</p></article>
+        <article><span class="feature-index">03</span><h3>Chromatic depth</h3><p>Lagoon, Midnight, Coral, and Phosphor palettes recolor the complete habitat without flattening species identity.</p></article>
+        <article><span class="feature-index">04</span><h3>Generated sound</h3><p>Filtered water motion and bubble chirps stream directly to PipeWire. One monitor leads; the others remain silent.</p></article>
+      </div>
+    </section>
+
+    <section class="reef-showcase section-wide">
+      <div class="image-panel aquarium-panel">
+        <img src="assets/aquarium.webp" alt="Live fullscreen Omarcharium aquarium on a 4K terminal">
+        <div class="image-label"><span>LIVE SURFACE CAPTURE</span><span>3840 × 2160 SOURCE</span></div>
+      </div>
+    </section>
+
+    <section id="control-room" class="section control-room">
+      <div class="section-heading compact">
+        <p class="eyebrow">02 // CONTROL ROOM</p>
+        <h2>Every current is yours.</h2>
+        <p>Click the tray icon to tune exact populations and environmental parameters. Changes persist atomically and apply to the next immersion.</p>
+      </div>
+      <div class="control-grid">
+        <figure class="portrait-frame">
+          <img src="assets/control-room.webp" alt="Omarcharium species manifest in the tray control room">
+        </figure>
+        <div class="control-copy">
+          <div class="spec-list">
+            <div><span>NEON//SHOAL</span><strong>Electric schooling streaks</strong></div>
+            <div><span>VEIL//ANGEL</span><strong>Tall, unhurried silhouettes</strong></div>
+            <div><span>DISC//SUN</span><strong>Round chromatic drifters</strong></div>
+            <div><span>SILK//BETTA</span><strong>Solitary trailing fins</strong></div>
+          </div>
+          <figure class="detail-frame">
+            <img src="assets/audio-controls.webp" alt="Omarcharium water column, audio, and idle controls">
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="section integration">
+      <div class="section-heading compact">
+        <p class="eyebrow">03 // NATIVE BY DESIGN</p>
+        <h2>Made for Omarchy, not merely launched by it.</h2>
+      </div>
+      <div class="integration-grid">
+        <div class="flow-card">
+          <div class="flow"><span>TRAY</span><i></i><span>QUICKSHELL</span><i></i><span>HYPRLAND</span><i></i><span>TERMINAL REEF</span></div>
+          <p>A service and overlay share the existing shell process. Rendering exists only during immersion.</p>
+        </div>
+        <ul class="check-list">
+          <li>One fullscreen terminal per monitor</li>
+          <li>Standard Omarchy screensaver identity</li>
+          <li>Inhibitor-aware idle activation</li>
+          <li>Unchanged first-party lock deadline</li>
+          <li>Keyboard, click, and pointer dismissal</li>
+          <li>Conservative toggle ownership</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="install" class="section install">
+      <div class="install-card">
+        <div>
+          <p class="eyebrow">04 // INSTALL</p>
+          <h2>One command to the waterline.</h2>
+          <p>Requires current Omarchy Quattro and Python 3.11+. No pip, npm, compiler, installer hook, or privileged write.</p>
+        </div>
+        <div class="command-shell">
+          <span class="prompt">$</span>
+          <code id="install-command">omarchy plugin add https://github.com/DailenG/omarcharium --enable</code>
+          <button type="button" id="copy-command" aria-label="Copy installation command">COPY</button>
+        </div>
+        <div class="install-links">
+          <a href="https://github.com/DailenG/omarcharium#use">Usage guide</a>
+          <a href="CONFIGURATION.md">Configuration reference</a>
+          <a href="ARCHITECTURE.md">Architecture</a>
+          <a href="https://github.com/DailenG/omarcharium/blob/main/SECURITY.md">Security</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-brand">OMARCHARIUM <span>// CREATED BY DAILEN GUNTER</span></div>
+    <div>MIT LICENSE · 2026</div>
+  </footer>
+
+  <script>
+    const copyButton = document.getElementById("copy-command");
+    copyButton.addEventListener("click", async () => {
+      const command = document.getElementById("install-command").textContent;
+      await navigator.clipboard.writeText(command);
+      copyButton.textContent = "COPIED";
+      window.setTimeout(() => { copyButton.textContent = "COPY"; }, 1600);
+    });
+  </script>
+</body>
+</html>

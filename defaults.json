@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "species": {
+    "neon_tetra": 10,
+    "clownfish": 4,
+    "angelfish": 3,
+    "discus": 3,
+    "butterflyfish": 2,
+    "royal_tang": 3,
+    "betta": 1,
+    "puffer": 2
+  },
+  "art": {
+    "palette": "lagoon",
+    "bubbleDensity": 55,
+    "current": 1.0,
+    "showTelemetry": true
+  },
+  "sound": {
+    "enabled": false,
+    "volume": 24
+  },
+  "integration": {
+    "idleEnabled": true
+  }
+}

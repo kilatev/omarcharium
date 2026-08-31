@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="ocean" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#071f2c"/>
+      <stop offset="0.52" stop-color="#063845"/>
+      <stop offset="1" stop-color="#031419"/>
+    </linearGradient>
+    <radialGradient id="glow">
+      <stop stop-color="#63f4ed" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#63f4ed" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft"><feGaussianBlur stdDeviation="16"/></filter>
+    <filter id="tiny"><feGaussianBlur stdDeviation="3"/></filter>
+    <pattern id="scan" width="4" height="4" patternUnits="userSpaceOnUse">
+      <path d="M0 3.5h4" stroke="#fff" stroke-opacity=".028"/>
+    </pattern>
+  </defs>
+  <rect width="1600" height="900" fill="url(#ocean)"/>
+  <ellipse cx="470" cy="210" rx="490" ry="330" fill="url(#glow)" filter="url(#soft)"/>
+  <g fill="none" stroke="#68eee7" stroke-opacity=".12" stroke-width="3">
+    <path d="M-40 165c170-70 250 60 420-12s270 50 450-18 280 50 460-24 240 30 390-10"/>
+    <path d="M-60 205c170-70 250 60 420-12s270 50 450-18 280 50 460-24 240 30 390-10"/>
+  </g>
+  <g font-family="monospace" font-weight="700">
+    <text x="70" y="78" font-size="29" letter-spacing="8" fill="#75eee7">OMARCHARIUM</text>
+    <text x="73" y="111" font-size="13" letter-spacing="3" fill="#77aeb4">PELAGIC TERMINAL ENVIRONMENT // ACTIVE</text>
+    <text x="1285" y="79" font-size="15" letter-spacing="2" fill="#8fe5e1">BIOMASS 28</text>
+    <text x="1285" y="106" font-size="12" letter-spacing="2" fill="#527d85">LAGOON // 24 FPS</text>
+
+    <g filter="url(#tiny)" opacity=".38">
+      <text x="238" y="308" font-size="31" fill="#43eaff">&lt;==_o_&gt;</text>
+      <text x="912" y="418" font-size="44" fill="#ff7cbb">&lt;=| o |)&gt;</text>
+    </g>
+    <text x="230" y="302" font-size="31" fill="#49efff">&lt;==_o_&gt;</text>
+    <text x="475" y="236" font-size="22" fill="#49efff">&lt;~=_o_&gt;</text>
+    <text x="700" y="347" font-size="37" fill="#ff9347">&lt;==|o|==)&gt;</text>
+    <text x="900" y="410" font-size="44" fill="#ff69b7">&lt;=| o  |)&gt;</text>
+    <text x="1110" y="286" font-size="31" fill="#ffe156">&lt;==/##\  |#o#|)&gt;</text>
+    <text x="1190" y="564" font-size="35" fill="#559cff">&lt;==  @  )&gt;</text>
+    <text x="356" y="518" font-size="27" fill="#bc76ff">&lt;~~~~_o\)&gt;</text>
+    <text x="138" y="604" font-size="33" fill="#abef80">&lt;= (o ) &gt;</text>
+
+    <g fill="#77dcd9" opacity=".72">
+      <text x="153" y="220" font-size="17">o</text><text x="202" y="402" font-size="11">·</text>
+      <text x="338" y="174" font-size="13">.</text><text x="615" y="276" font-size="18">o</text>
+      <text x="808" y="180" font-size="11">·</text><text x="1060" y="212" font-size="22">O</text>
+      <text x="1260" y="360" font-size="13">.</text><text x="1410" y="188" font-size="18">o</text>
+      <text x="1350" y="490" font-size="11">·</text><text x="540" y="470" font-size="13">.</text>
+    </g>
+  </g>
+  <g stroke="#43b980" fill="none" stroke-width="8" stroke-linecap="round">
+    <path d="M125 812c10-90-35-117 8-202 27-54-5-87 11-123"/>
+    <path d="M224 820c-26-77 26-122-4-184-24-49 15-80 5-128"/>
+    <path d="M1452 822c21-88-30-120 6-199 26-57-9-94 8-136"/>
+  </g>
+  <g stroke="#ff6d8d" fill="none" stroke-width="10" stroke-linecap="round">
+    <path d="M790 820v-128m0 58-58-58m58 20 69-72m-112 74-35-27m123-12 47-42"/>
+  </g>
+  <path d="M0 788c180-66 286 54 458-15s297 67 490-6 370 62 652-19v152H0z" fill="#09272a"/>
+  <path d="M0 806c170-45 308 29 470-11s290 35 466-5 384 35 664-26" fill="none" stroke="#bc9662" stroke-width="8" stroke-dasharray="2 15"/>
+  <text x="800" y="858" text-anchor="middle" font-family="monospace" font-size="14" letter-spacing="2" fill="#527d85">[ ANY KEY / POINTER MOVEMENT RETURNS TO SURFACE ]</text>
+  <rect width="1600" height="900" fill="url(#scan)"/>
+  <rect x="28" y="28" width="1544" height="844" rx="18" fill="none" stroke="#63e9e2" stroke-opacity=".25"/>
+</svg>

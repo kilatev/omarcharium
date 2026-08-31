@@ -1,0 +1,10 @@
+[
+  {"key":"neon_tetra","name":"Neon tetra","callSign":"NEON//SHOAL","description":"electric schooling streaks","accent":"#45f3ff","max":20},
+  {"key":"clownfish","name":"Clownfish","callSign":"EMBER//CLOWN","description":"warm banded reef dancers","accent":"#ff8a3d","max":12},
+  {"key":"angelfish","name":"Angelfish","callSign":"VEIL//ANGEL","description":"tall, unhurried silhouettes","accent":"#f7e8a4","max":10},
+  {"key":"discus","name":"Discus","callSign":"DISC//SUN","description":"round chromatic drifters","accent":"#ff5ca8","max":10},
+  {"key":"butterflyfish","name":"Butterflyfish","callSign":"PRISM//WING","description":"sharp reef geometry","accent":"#ffe45d","max":10},
+  {"key":"royal_tang","name":"Royal tang","callSign":"COBALT//TANG","description":"blue current runners","accent":"#5899ff","max":12},
+  {"key":"betta","name":"Betta","callSign":"SILK//BETTA","description":"solitary trailing fins","accent":"#c681ff","max":6},
+  {"key":"puffer","name":"Puffer","callSign":"ORB//PUFFER","description":"curious buoyant sentries","accent":"#a9f37d","max":10}
+]

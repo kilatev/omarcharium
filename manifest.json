@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "dailen.omarcharium",
+  "name": "Omarcharium",
+  "version": "1.0.0",
+  "author": "Dailen Gunter",
+  "license": "MIT",
+  "description": "A living TTE-inspired tropical aquarium screensaver with a tray-hosted control room and procedural ambience.",
+  "kinds": [
+    "service",
+    "overlay"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "Service.qml",
+    "overlay": "Config.qml"
+  }
+}
