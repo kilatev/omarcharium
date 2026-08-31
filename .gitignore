@@ -21,3 +21,6 @@ venv/
 # Local captures and runtime state
 screenshots/
 *.log
+
+# Personal development handoff
+CONTINUE.md

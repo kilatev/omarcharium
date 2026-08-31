@@ -27,12 +27,12 @@ A living, terminal-native tropical aquarium for Omarchy. Omarcharium turns every
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/assets/control-room.webp" alt="Omarcharium control room with species manifest" /></td>
+    <td width="50%"><img src="docs/assets/control-room.webp" alt="Omarcharium status display and backdrop controls" /></td>
     <td width="50%"><img src="docs/assets/aquarium.webp" alt="Live Omarcharium fullscreen tropical terminal aquarium" /></td>
   </tr>
   <tr>
-    <td align="center"><strong>Tray-hosted control room</strong><br />Exact species populations and a live biosphere preview.</td>
-    <td align="center"><strong>Terminal reef in motion</strong><br />Truecolor fish, caustics, bubbles, kelp, coral, and telemetry.</td>
+    <td align="center"><strong>Tray-hosted control room</strong><br />Local status, image backdrops, and layered environmental controls.</td>
+    <td align="center"><strong>Terminal reef in motion</strong><br />Truecolor fish, caustics, bubbles, kelp, coral, and a local status display.</td>
   </tr>
 </table>
 
@@ -48,7 +48,7 @@ A living, terminal-native tropical aquarium for Omarchy. Omarcharium turns every
 omarchy plugin add https://github.com/DailenG/omarcharium --enable
 ```
 
-The aquarium icon appears in the system tray. Click it to open the control room; middle-click it to begin an immersion immediately.
+The aquarium icon appears in the system tray. Click it to open the control room, middle-click it to begin an immersion immediately, or right-click it for the concise action menu.
 
 ### Update
 
@@ -80,6 +80,7 @@ No Python package, compiled extension, bundled recording, network service, or se
 |---|---|
 | Click tray icon | Open or return to the control room |
 | Middle-click tray icon | Begin immersion immediately |
+| Right-click tray icon | Open Control Room, Immerse Now, or Report Bug |
 | **Begin Immersion** | Save parameters and launch on every monitor |
 | **Surface** | Close every active aquarium window |
 | **Test 8s** | Play three diagnostic tones, then generated water ambience |
@@ -113,7 +114,7 @@ The control room writes settings atomically to:
 ~/.config/omarcharium/config.json
 ```
 
-Every species has an exact independent population. The water column controls palette, bubbles, current velocity, and terminal telemetry. Backdrop controls select Plain Depth, Pelagic Field, or a local image through Omarchy's native image picker, with fit, dimming, and independently layered pelagic effects. Ambience controls generation and volume. Surface controls can keep the reef visible during pointer movement while clicks and keyboard input continue to dismiss it.
+Every species has an exact independent population. The water column controls palette, bubbles, current velocity, and the terminal status display. Backdrop controls select Plain Depth, Pelagic Field, a local image, or an ASCII-fied image through Omarchy's native image picker, with fit, dimming, and independently layered pelagic effects. Ambience controls generation and volume. Surface controls can keep the reef visible during pointer movement while clicks and keyboard input continue to dismiss it.
 
 See the complete [configuration reference](docs/CONFIGURATION.md) for limits, defaults, JSON schema, and diagnostics.
 

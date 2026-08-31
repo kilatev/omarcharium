@@ -24,7 +24,9 @@ Each species has an independent exact population. Setting a species to zero remo
 | Palette | Lagoon, Midnight, Coral, Phosphor | Lagoon | Complete habitat color system |
 | Bubble density | 0–100% | 55% | Number of animated bubble entities |
 | Current | 0.35–1.8× | 1.0× | Horizontal fish velocity multiplier |
-| Telemetry | On/off | On | Header, biomass, palette, and dismissal footer |
+| Status display | On/off | On | Header, biomass, palette, and dismissal footer; rendered locally |
+
+The JSON key remains `showTelemetry` for configuration compatibility. It only toggles this local status display; Omarcharium does not collect or transmit usage data.
 
 ## Backdrop layers
 
@@ -37,7 +39,7 @@ Each species has an independent exact population. Setting a species to zero remo
 | ASCII dither | On/off | On | Bayer 4×4 ordered dither for smoother gradients |
 | Image path | Local JPEG, PNG, GIF, BMP, or WebP | Empty | Selected image; only the first animated frame is used |
 | Image fit | Cover, contain, center | Cover | Preprocessing crop and placement behavior |
-| Image dimming | 0–90% | 45% | Reduces image brightness beneath fish and telemetry |
+| Image dimming | 0–90% | 45% | Reduces image brightness beneath fish and the status display |
 | Pelagic effects | On/off | Off | Animated current bands, scanlines, and depth particles |
 | Effect intensity | 0–100% | 55% | Density of the optional effects layer |
 
@@ -45,7 +47,7 @@ The background source and effects are independent. Pelagic effects can run over 
 
 **ASCII-fied Image** converts the selected local image into a cell grid cached under `~/.cache/omarcharium/ascii-*.bin`. The cache key includes terminal geometry, ASCII settings, image metadata, fit mode, dimming, and the active palette. Each cell stores one glyph and one true-colour RGB triplet. The bounded grid (max 600×240 cells) renders deterministically through the existing ANSI pipeline. `--ascii-preview` emits the plain-text grid for scripting; `--snapshot` includes it in full frames.
 
-**Custom Image** uses Omarchy's fullscreen image picker. The renderer accepts local files only, limits inputs to 32 MiB and 24 megapixels, preprocesses once through ImageMagick, and caches the dimmed fit under `~/.cache/omarcharium/`. Ghostty and Kitty receive the cached PNG through the Kitty graphics protocol at negative z-order. Alacritty and Foot display a clear plain-depth fallback while preserving habitat, fish, telemetry, and optional effects.
+**Custom Image** uses Omarchy's fullscreen image picker. The renderer accepts local files only, limits inputs to 32 MiB and 24 megapixels, preprocesses once through ImageMagick, and caches the dimmed fit under `~/.cache/omarcharium/`. Ghostty and Kitty receive the cached PNG through the Kitty graphics protocol at negative z-order. Alacritty and Foot display a clear plain-depth fallback while preserving habitat, fish, the status display, and optional effects.
 ## Ambience
 
 Audio is off by default. When enabled, `volume` controls the generated stream from 0–100%. Only one monitor instance emits audio.
@@ -90,44 +92,6 @@ Disable automatic immersion to keep tray and manual launching while restoring th
     "showTelemetry": true
   },
   "backdrop": {
-    "source": "plain",
-    "imagePath": "",
-    "fitMode": "cover",
-    "dimming": 45,
-    "effectsEnabled": false,
-    "effectIntensity": 55
-  },
-  "sound": {
-    "enabled": false,
-    "volume": 24
-  },
-  "integration": {
-    "idleEnabled": true,
-    "exitOnPointerMotion": true
-  }
-}
-```
-
-Unknown keys are ignored. Missing and malformed values fall back to packaged defaults; numeric values are clamped to supported ranges.
-{
-  "schemaVersion": 1,
-  "species": {
-    "neon_tetra": 10,
-    "clownfish": 4,
-    "angelfish": 3,
-    "discus": 3,
-    "butterflyfish": 2,
-    "royal_tang": 3,
-    "betta": 1,
-    "puffer": 2
-  },
-  "art": {
-    "palette": "lagoon",
-    "bubbleDensity": 55,
-    "current": 1.0,
-    "showTelemetry": true
-  },
-  "backdrop": {
     "source": "ascii",
     "imagePath": "/home/user/Pictures/reef.png",
     "fitMode": "cover",
@@ -151,6 +115,10 @@ Unknown keys are ignored. Missing and malformed values fall back to packaged def
   }
 }
 ```
+
+Unknown keys are ignored. Missing and malformed values fall back to packaged defaults; numeric values are clamped to supported ranges.
+
+## Command-line diagnostics
 
 ```sh
 # Render only the ASCII-fied backdrop

@@ -2,6 +2,16 @@
 
 All notable changes are documented here. This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.0.5] - 2026-08-31
+
+### Added
+
+- Native right-click tray menu for opening the control room, starting an immersion, or reporting a bug.
+
+### Changed
+
+- Renamed the local information overlay to **Status Display** in user-facing copy to avoid implying collection or transmission.
+
 ## [1.0.4] - 2026-08-31
 
 ### Added
@@ -25,7 +35,7 @@ All notable changes are documented here. This project follows [Semantic Versioni
 
 - Optional palette-aware Pelagic Field background source.
 - Independently configurable animated current, scanline, and depth-particle effects.
-- Explicit background, effects, habitat, fish, and telemetry layer model.
+- Explicit background, effects, habitat, fish, and status-display layer model.
 
 ## [1.0.1] - 2026-08-31
 
@@ -50,6 +60,8 @@ All notable changes are documented here. This project follows [Semantic Versioni
 - Deterministic renderer snapshots, configuration normalization, and behavioral tests.
 - Marketplace manifest, preview artwork, actual screenshots, contributor guide, security policy, and CI validation.
 
+[1.0.5]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.5
+[1.0.4]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.4
 [1.0.3]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.3
 [1.0.2]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.2
 [1.0.1]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.1

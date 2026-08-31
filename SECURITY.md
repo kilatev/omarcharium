@@ -24,7 +24,7 @@ Omarcharium is an unsandboxed Omarchy shell plugin and runs with the current use
 
 - no `sudo`, `pkexec`, package-manager, or installer execution;
 - no network access or remote assets;
-- no secrets, credentials, or telemetry collection;
+- no secrets, credentials, usage analytics, or data collection;
 - no writes to `/usr/share/omarchy/`;
 - configuration only under `~/.config/omarcharium/`;
 - selected backdrop images are local read-only inputs, limited to 32 MiB and 24 megapixels;

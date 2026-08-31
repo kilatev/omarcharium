@@ -547,7 +547,7 @@ class OceanScene:
                         colour = body
                     canvas.put(x + column, y + row, char, colour)
 
-    def _draw_telemetry(self, canvas: FrameBuffer) -> None:
+    def _draw_status_display(self, canvas: FrameBuffer) -> None:
         if not self.config["art"]["showTelemetry"]:
             return
         palette = self.palette
@@ -579,7 +579,7 @@ class OceanScene:
         self._draw_habitat(canvas)
         self._draw_bubbles(canvas)
         self._draw_fish(canvas)
-        self._draw_telemetry(canvas)
+        self._draw_status_display(canvas)
         self._draw_backdrop_notice(canvas)
         return canvas
 

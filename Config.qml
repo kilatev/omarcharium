@@ -777,7 +777,7 @@ Item {
               Text { anchors.centerIn: parent; text: root.config.art.showTelemetry ? "✓" : ""; color: "#061219"; font.family: root.fontFamily; font.pixelSize: 13; font.bold: true }
               MouseArea { anchors.fill: parent; onClicked: root.changeArt("showTelemetry", !root.config.art.showTelemetry) }
             }
-            Text { x: 43; y: 179; text: "render terminal telemetry"; color: "#78959d"; font.family: root.fontFamily; font.pixelSize: 10 }
+            Text { x: 43; y: 179; text: "show status display"; color: "#78959d"; font.family: root.fontFamily; font.pixelSize: 10 }
           }
 
           Text {

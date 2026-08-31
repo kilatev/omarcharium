@@ -87,13 +87,27 @@ Item {
     visible: true
     tooltip: "Omarcharium · click to configure · middle-click to immerse"
     icon.source: Qt.resolvedUrl("assets/tray.svg")
+    menu: Platform.Menu {
+      Platform.MenuItem {
+        text: "Open Control Room"
+        onTriggered: root.openControlRoom()
+      }
+      Platform.MenuItem {
+        text: "Immerse Now"
+        onTriggered: root.startAquarium()
+      }
+      Platform.MenuSeparator { }
+      Platform.MenuItem {
+        text: "Report Bug"
+        onTriggered: Qt.openUrlExternally("https://github.com/DailenG/omarcharium/issues")
+      }
+    }
 
     onActivated: function(reason) {
       if (reason === Platform.SystemTrayIcon.MiddleClick) {
         root.startAquarium()
       } else if (reason === Platform.SystemTrayIcon.Trigger
-                 || reason === Platform.SystemTrayIcon.DoubleClick
-                 || reason === Platform.SystemTrayIcon.Context) {
+                 || reason === Platform.SystemTrayIcon.DoubleClick) {
         root.openControlRoom()
       }
     }
