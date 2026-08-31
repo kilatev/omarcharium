@@ -168,13 +168,21 @@ def normalise_config(raw: Any) -> dict[str, Any]:
     backdrop = merged.get("backdrop", {})
     fallback_backdrop = defaults.get("backdrop", {})
     backdrop_source = str(backdrop.get("source", fallback_backdrop.get("source", "plain")))
-    if backdrop_source not in {"plain", "pelagic", "image"}:
+    if backdrop_source not in {"plain", "pelagic", "image", "ascii"}:
         backdrop_source = "plain"
     image_path = backdrop.get("imagePath", fallback_backdrop.get("imagePath", ""))
     image_path = image_path if isinstance(image_path, str) else ""
     fit_mode = str(backdrop.get("fitMode", fallback_backdrop.get("fitMode", "cover")))
     if fit_mode not in {"cover", "contain", "center"}:
         fit_mode = "cover"
+    ascii_settings = backdrop.get("ascii", {})
+    fallback_ascii = fallback_backdrop.get("ascii", {})
+    glyph_mode = str(ascii_settings.get("glyphMode", fallback_ascii.get("glyphMode", "ramp")))
+    if glyph_mode not in {"ramp", "blocks"}:
+        glyph_mode = "ramp"
+    color_mode = str(ascii_settings.get("colorMode", fallback_ascii.get("colorMode", "truecolor")))
+    if color_mode not in {"truecolor", "palette", "monochrome"}:
+        color_mode = "truecolor"
 
     sound = merged.get("sound", {})
     fallback_sound = defaults.get("sound", {})
@@ -196,6 +204,16 @@ def normalise_config(raw: Any) -> dict[str, Any]:
             "dimming": int(clamp_number(
                 backdrop.get("dimming"), 0, 90, fallback_backdrop.get("dimming", 45),
             )),
+            "ascii": {
+                "detail": int(clamp_number(
+                    ascii_settings.get("detail"), 25, 100, fallback_ascii.get("detail", 70),
+                )),
+                "glyphMode": glyph_mode,
+                "colorMode": color_mode,
+                "dither": ascii_settings.get("dither")
+                if isinstance(ascii_settings.get("dither"), bool)
+                else bool(fallback_ascii.get("dither", True)),
+            },
             "effectsEnabled": backdrop.get("effectsEnabled")
             if isinstance(backdrop.get("effectsEnabled"), bool)
             else bool(fallback_backdrop.get("effectsEnabled", False)),
@@ -308,6 +326,7 @@ class OceanScene:
             mix_rgb(self.palette["background"], self.palette["water"], 0.07 + index * 0.025)
             for index in range(8)
         )
+        self.ascii_backdrop: list[list[tuple[str, RGB]]] | None = None
         self.backdrop_notice = ""
         self._populate()
 
@@ -405,6 +424,11 @@ class OceanScene:
             mote.y += math.cos(self.elapsed * mote.speed * 0.7 + mote.phase) * dt * 0.08
 
     def _draw_backdrop_source(self, canvas: FrameBuffer) -> None:
+        if self.config["backdrop"]["source"] == "ascii" and self.ascii_backdrop is not None:
+            for y, row in enumerate(self.ascii_backdrop):
+                for x, (glyph, colour) in enumerate(row):
+                    canvas.put(x, y, glyph, colour)
+            return
         if self.config["backdrop"]["source"] != "pelagic":
             return
         for y in range(3, self.height - 3):
@@ -749,6 +773,21 @@ class RasterBackdrop:
             "-limit", "disk", "512MiB",
         ]
 
+    @classmethod
+    def identify_dimensions(cls, source: Path) -> tuple[int, int] | None:
+        try:
+            identified = subprocess.run(
+                ["magick", "identify", *cls._magick_prefix()[1:], "-ping", "-format", "%w %h", f"{source}[0]"],
+                check=False, capture_output=True, text=True, timeout=10,
+            )
+            width_text, height_text = identified.stdout.strip().split()
+            width, height = int(width_text), int(height_text)
+        except (OSError, ValueError, subprocess.TimeoutExpired):
+            return None
+        if identified.returncode != 0 or width < 1 or height < 1 or width * height > cls.MAX_PIXELS:
+            return None
+        return width, height
+
     def prepare(self) -> bool:
         source = self._source_path()
         if source is None:
@@ -757,21 +796,9 @@ class RasterBackdrop:
             self.error = "ImageMagick is unavailable · using plain depth"
             return False
 
-        try:
-            identified = subprocess.run(
-                ["magick", "identify", *self._magick_prefix()[1:], "-ping", "-format", "%w %h", f"{source}[0]"],
-                check=False, capture_output=True, text=True, timeout=10,
-            )
-            width_text, height_text = identified.stdout.strip().split()
-            source_width, source_height = int(width_text), int(height_text)
-        except (OSError, ValueError, subprocess.TimeoutExpired):
-            self.error = "custom image could not be decoded · using plain depth"
-            return False
-        if identified.returncode != 0 or source_width < 1 or source_height < 1:
-            self.error = "custom image could not be decoded · using plain depth"
-            return False
-        if source_width * source_height > self.MAX_PIXELS:
-            self.error = "custom image exceeds 24 megapixels · using plain depth"
+        dimensions = self.identify_dimensions(source)
+        if dimensions is None:
+            self.error = "custom image could not be decoded or exceeds 24 megapixels · using plain depth"
             return False
 
         metadata = source.stat()
@@ -843,6 +870,195 @@ class RasterBackdrop:
         if self.cached_path is not None:
             sys.stdout.write(self.delete_sequence())
             sys.stdout.flush()
+
+
+class AsciiBackdrop:
+    """Convert one local image into a cached terminal-cell backdrop."""
+
+    MAGIC = b"OASCII1"
+    GLYPHS = {
+        "ramp": " .·,:;irsXA253hMHGS#9B&@",
+        "blocks": " ░▒▓█",
+    }
+    BAYER_4 = (
+        (0, 8, 2, 10),
+        (12, 4, 14, 6),
+        (3, 11, 1, 9),
+        (15, 7, 13, 5),
+    )
+
+    def __init__(self, config: dict[str, Any]) -> None:
+        self.config = config
+        self.settings = config["backdrop"]
+        self.grid: list[list[tuple[str, RGB]]] | None = None
+        self.cache_path: Path | None = None
+        self.error = ""
+
+    def sample_geometry(self, width: int, height: int) -> tuple[int, int]:
+        detail = self.settings["ascii"]["detail"] / 100
+        return max(8, round(width * detail)), max(4, round(height * detail))
+
+    def cache_signature(self, source: Path, width: int, height: int) -> str:
+        metadata = source.stat()
+        ascii_settings = self.settings["ascii"]
+        signature = "\0".join((
+            str(source), str(metadata.st_size), str(metadata.st_mtime_ns),
+            str(width), str(height), self.settings["fitMode"], str(self.settings["dimming"]),
+            str(ascii_settings["detail"]), ascii_settings["glyphMode"],
+            ascii_settings["colorMode"], str(ascii_settings["dither"]),
+            self.config["art"]["palette"],
+        ))
+        return hashlib.sha256(signature.encode("utf-8", "surrogateescape")).hexdigest()
+
+    @staticmethod
+    def _nearest_colour(colour: RGB, candidates: tuple[RGB, ...]) -> RGB:
+        return min(candidates, key=lambda candidate: sum((left - right) ** 2 for left, right in zip(colour, candidate)))
+
+    def _build_payload(
+        self,
+        raw: bytes,
+        sample_width: int,
+        sample_height: int,
+        width: int,
+        height: int,
+    ) -> bytes:
+        expected = sample_width * sample_height * 3
+        if len(raw) != expected:
+            raise ValueError(f"expected {expected} RGB bytes, received {len(raw)}")
+
+        ascii_settings = self.settings["ascii"]
+        glyphs = self.GLYPHS[ascii_settings["glyphMode"]]
+        palette = PALETTES[self.config["art"]["palette"]]
+        palette_candidates = tuple(palette[key] for key in ("background", "dim", "water", "caustic", "text"))
+        output = bytearray(width * height * 4)
+        offset = 0
+        for y in range(height):
+            sample_y = min(sample_height - 1, y * sample_height // height)
+            for x in range(width):
+                sample_x = min(sample_width - 1, x * sample_width // width)
+                source_offset = (sample_y * sample_width + sample_x) * 3
+                colour = (raw[source_offset], raw[source_offset + 1], raw[source_offset + 2])
+                luminance = round(0.2126 * colour[0] + 0.7152 * colour[1] + 0.0722 * colour[2])
+                if ascii_settings["dither"]:
+                    luminance += round((self.BAYER_4[y & 3][x & 3] - 7.5) * 2.4)
+                    luminance = max(0, min(255, luminance))
+                glyph_index = round(luminance * (len(glyphs) - 1) / 255)
+
+                if ascii_settings["colorMode"] == "palette":
+                    display_colour = self._nearest_colour(colour, palette_candidates)
+                elif ascii_settings["colorMode"] == "monochrome":
+                    display_colour = mix_rgb(palette["dim"], palette["text"], luminance / 255)
+                else:
+                    display_colour = colour
+                output[offset:offset + 4] = bytes((glyph_index, *display_colour))
+                offset += 4
+        return bytes(output)
+
+    def _decode_payload(self, payload: bytes, width: int, height: int) -> list[list[tuple[str, RGB]]]:
+        if len(payload) != width * height * 4:
+            raise ValueError("invalid ASCII backdrop cache length")
+        glyphs = self.GLYPHS[self.settings["ascii"]["glyphMode"]]
+        grid: list[list[tuple[str, RGB]]] = []
+        offset = 0
+        for _y in range(height):
+            row: list[tuple[str, RGB]] = []
+            for _x in range(width):
+                glyph_index, red, green, blue = payload[offset:offset + 4]
+                if glyph_index >= len(glyphs):
+                    raise ValueError("invalid ASCII backdrop glyph index")
+                row.append((glyphs[glyph_index], (red, green, blue)))
+                offset += 4
+            grid.append(row)
+        return grid
+
+    def _load_cache(self, path: Path, width: int, height: int) -> bool:
+        try:
+            encoded = path.read_bytes()
+            header_size = len(self.MAGIC) + 4
+            if len(encoded) < header_size or not encoded.startswith(self.MAGIC):
+                return False
+            stored_width, stored_height = struct.unpack(">HH", encoded[len(self.MAGIC):header_size])
+            if (stored_width, stored_height) != (width, height):
+                return False
+            self.grid = self._decode_payload(encoded[header_size:], width, height)
+            return True
+        except (OSError, ValueError):
+            return False
+
+    def prepare(self, width: int, height: int) -> bool:
+        width = max(1, min(600, width))
+        height = max(1, min(240, height))
+        validator = RasterBackdrop(self.config)
+        source = validator._source_path()
+        if source is None:
+            self.error = validator.error.replace("custom image", "ASCII source image")
+            return False
+        if shutil.which("magick") is None:
+            self.error = "ImageMagick is unavailable · using plain depth"
+            return False
+        if RasterBackdrop.identify_dimensions(source) is None:
+            self.error = "ASCII source could not be decoded or exceeds 24 megapixels · using plain depth"
+            return False
+
+        cache_key = self.cache_signature(source, width, height)
+        cache_root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "omarcharium"
+        cache_root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        output = cache_root / f"ascii-{cache_key}.bin"
+        lock_path = cache_root / f"ascii-{cache_key}.lock"
+
+        try:
+            with lock_path.open("a+b") as lock_file:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+                if self._load_cache(output, width, height):
+                    self.cache_path = output
+                    self.error = ""
+                    return True
+
+                sample_width, sample_height = self.sample_geometry(width, height)
+                physical_height = sample_height * 2
+                geometry = f"{sample_width}x{physical_height}"
+                if self.settings["fitMode"] == "cover":
+                    fit_args = ["-resize", f"{geometry}^", "-gravity", "center", "-extent", geometry]
+                elif self.settings["fitMode"] == "contain":
+                    fit_args = ["-resize", geometry, "-gravity", "center", "-extent", geometry]
+                else:
+                    fit_args = ["-resize", f"{geometry}>", "-gravity", "center", "-extent", geometry]
+                brightness = (100 - self.settings["dimming"]) / 100
+                converted = subprocess.run(
+                    [
+                        *RasterBackdrop._magick_prefix(), f"{source}[0]", "-auto-orient",
+                        "-background", "black", *fit_args, "-alpha", "remove",
+                        "-evaluate", "multiply", f"{brightness:.2f}",
+                        "-resize", f"{sample_width}x{sample_height}!",
+                        "-depth", "8", "rgb:-",
+                    ],
+                    check=False, capture_output=True, timeout=30,
+                )
+                if converted.returncode != 0:
+                    self.error = "ASCII conversion failed · using plain depth"
+                    return False
+                payload = self._build_payload(
+                    converted.stdout, sample_width, sample_height, width, height,
+                )
+                encoded = self.MAGIC + struct.pack(">HH", width, height) + payload
+                temporary = cache_root / f".{cache_key}.{os.getpid()}.tmp"
+                temporary.write_bytes(encoded)
+                os.replace(temporary, output)
+                if not self._load_cache(output, width, height):
+                    self.error = "ASCII cache validation failed · using plain depth"
+                    return False
+        except (OSError, ValueError, subprocess.TimeoutExpired):
+            self.error = "ASCII backdrop cache failed · using plain depth"
+            return False
+
+        self.cache_path = output
+        self.error = ""
+        return True
+
+    def plain(self) -> str:
+        if self.grid is None:
+            return ""
+        return "\n".join("".join(glyph for glyph, _colour in row).rstrip() for row in self.grid)
 
 
 class DismissalInput:
@@ -958,6 +1174,7 @@ def run_interactive(config: dict[str, Any], seed: int, sound_override: bool | No
     dismissal_input = DismissalInput(config["integration"]["exitOnPointerMotion"])
     raster = RasterBackdrop(config)
     raster_active = False
+    ascii_renderer = AsciiBackdrop(config)
     if config["backdrop"]["source"] == "image":
         if not raster.terminal_supported():
             scene.backdrop_notice = "custom images require Ghostty or Kitty · using plain depth"
@@ -965,6 +1182,11 @@ def run_interactive(config: dict[str, Any], seed: int, sound_override: bool | No
             raster_active = True
         else:
             scene.backdrop_notice = raster.error
+    elif config["backdrop"]["source"] == "ascii":
+        if ascii_renderer.prepare(width, height):
+            scene.ascii_backdrop = ascii_renderer.grid
+        else:
+            scene.backdrop_notice = ascii_renderer.error
     stop_requested = False
     user_dismissed = False
 
@@ -1001,6 +1223,13 @@ def run_interactive(config: dict[str, Any], seed: int, sound_override: bool | No
                         scene.resize(width, height)
                         if raster_active:
                             raster.display(width, height)
+                        if config["backdrop"]["source"] == "ascii":
+                            if ascii_renderer.prepare(width, height):
+                                scene.ascii_backdrop = ascii_renderer.grid
+                                scene.backdrop_notice = ""
+                            else:
+                                scene.ascii_backdrop = None
+                                scene.backdrop_notice = ascii_renderer.error
                     scene.update(now - previous)
                     previous = now
                     sys.stdout.write(scene.render().ansi())
@@ -1060,6 +1289,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--height", type=int, default=32, help="snapshot height")
     parser.add_argument("--check-config", action="store_true", help="print the normalised configuration and exit")
     parser.add_argument("--check-backdrop", action="store_true", help="validate and prepare the configured custom image")
+    parser.add_argument("--ascii-preview", action="store_true", help="render only the configured ASCII-fied backdrop")
     parser.add_argument(
         "--audio-test", type=float, nargs="?", const=8.0, default=None, metavar="SECONDS",
         help="play an audible PipeWire diagnostic without requiring a terminal",
@@ -1084,11 +1314,24 @@ def main(argv: list[str] | None = None) -> int:
         compatibility = "supported" if raster.terminal_supported() else "plain fallback in this terminal"
         print(f"Omarcharium custom backdrop ready: {raster.cached_path} ({compatibility})")
         return 0
+    if args.ascii_preview:
+        ascii_renderer = AsciiBackdrop(config)
+        if not ascii_renderer.prepare(args.width, args.height):
+            print(f"omarcharium ASCII preview failed: {ascii_renderer.error}", file=sys.stderr)
+            return 4
+        print(ascii_renderer.plain())
+        return 0
     if args.audio_test is not None:
         return run_audio_test(config, args.audio_test)
     seed = args.seed if args.seed is not None else (os.getpid() ^ time.time_ns()) & 0xFFFFFFFF
     if args.snapshot:
         scene = OceanScene(args.width, args.height, config, seed)
+        if config["backdrop"]["source"] == "ascii":
+            ascii_renderer = AsciiBackdrop(config)
+            if ascii_renderer.prepare(scene.width, scene.height):
+                scene.ascii_backdrop = ascii_renderer.grid
+            else:
+                scene.backdrop_notice = ascii_renderer.error
         scene.update(1.0 / 24.0)
         print(scene.render().plain())
         return 0

@@ -69,6 +69,26 @@ class ConfigurationTests(unittest.TestCase):
         self.assertEqual(config["backdrop"]["fitMode"], "cover")
         self.assertEqual(config["backdrop"]["dimming"], 0)
 
+    def test_ascii_backdrop_settings_are_normalized(self) -> None:
+        config = AQUARIUM.normalise_config({
+            "backdrop": {
+                "source": "ascii",
+                "ascii": {
+                    "detail": 999,
+                    "glyphMode": "letters",
+                    "colorMode": "indexed",
+                    "dither": "yes",
+                },
+            },
+        })
+        self.assertEqual(config["backdrop"]["source"], "ascii")
+        self.assertEqual(config["backdrop"]["ascii"], {
+            "detail": 100,
+            "glyphMode": "ramp",
+            "colorMode": "truecolor",
+            "dither": True,
+        })
+
 
 class RendererTests(unittest.TestCase):
     def test_mirroring_is_an_involution_for_every_fish_frame(self) -> None:
@@ -162,6 +182,99 @@ class RasterBackdropTests(unittest.TestCase):
         self.assertIn("c=120,r=36", sequence)
 
 
+class AsciiBackdropTests(unittest.TestCase):
+    @staticmethod
+    def config(**ascii_overrides: object) -> dict[str, object]:
+        return AQUARIUM.normalise_config({
+            "species": {key: 0 for key in AQUARIUM.SPRITES},
+            "art": {"showTelemetry": False},
+            "backdrop": {
+                "source": "ascii",
+                "effectsEnabled": False,
+                "ascii": {
+                    "detail": 70,
+                    "glyphMode": "ramp",
+                    "colorMode": "truecolor",
+                    "dither": False,
+                    **ascii_overrides,
+                },
+            },
+        })
+
+    def test_rgb_conversion_is_deterministic_and_cell_bounded(self) -> None:
+        converter = AQUARIUM.AsciiBackdrop(self.config())
+        raw = bytes((
+            0, 0, 0, 255, 255, 255,
+            255, 0, 0, 0, 180, 255,
+        ))
+        first = converter._build_payload(raw, 2, 2, 8, 4)
+        second = converter._build_payload(raw, 2, 2, 8, 4)
+        grid = converter._decode_payload(first, 8, 4)
+
+        self.assertEqual(first, second)
+        self.assertEqual(len(first), 8 * 4 * 4)
+        self.assertEqual((len(grid), len(grid[0])), (4, 8))
+        self.assertTrue(all(glyph in converter.GLYPHS["ramp"] for row in grid for glyph, _ in row))
+
+    def test_glyph_colour_and_dither_modes_change_the_payload(self) -> None:
+        raw = bytes((116, 129, 171)) * 16
+        truecolor = AQUARIUM.AsciiBackdrop(self.config())._build_payload(raw, 4, 4, 4, 4)
+        palette_config = self.config(glyphMode="blocks", colorMode="palette", dither=True)
+        palette_converter = AQUARIUM.AsciiBackdrop(palette_config)
+        palette_payload = palette_converter._build_payload(raw, 4, 4, 4, 4)
+        palette_grid = palette_converter._decode_payload(palette_payload, 4, 4)
+        allowed_colours = {
+            AQUARIUM.PALETTES["lagoon"][key]
+            for key in ("background", "dim", "water", "caustic", "text")
+        }
+
+        self.assertNotEqual(truecolor, palette_payload)
+        self.assertTrue(all(glyph in palette_converter.GLYPHS["blocks"] for row in palette_grid for glyph, _ in row))
+        self.assertTrue(all(colour in allowed_colours for row in palette_grid for _, colour in row))
+
+    def test_cache_key_tracks_geometry_settings_and_source_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source.png"
+            source.write_bytes(b"source")
+            converter = AQUARIUM.AsciiBackdrop(self.config())
+            initial = converter.cache_signature(source, 80, 24)
+            self.assertNotEqual(initial, converter.cache_signature(source, 81, 24))
+
+            converter.settings["ascii"]["detail"] = 71
+            settings_changed = converter.cache_signature(source, 80, 24)
+            self.assertNotEqual(initial, settings_changed)
+
+            converter.settings["ascii"]["detail"] = 70
+            metadata = source.stat()
+            os.utime(source, ns=(metadata.st_atime_ns, metadata.st_mtime_ns + 1_000_000))
+            self.assertNotEqual(initial, converter.cache_signature(source, 80, 24))
+
+    def test_corrupt_payload_and_missing_source_use_safe_fallbacks(self) -> None:
+        converter = AQUARIUM.AsciiBackdrop(self.config())
+        with self.assertRaises(ValueError):
+            converter._build_payload(b"\x00", 2, 2, 4, 4)
+
+        missing_config = self.config()
+        missing_config["backdrop"]["imagePath"] = "/definitely/missing/ascii-source.png"
+        missing = AQUARIUM.AsciiBackdrop(missing_config)
+        self.assertFalse(missing.prepare(40, 16))
+        self.assertIn("using plain depth", missing.error)
+
+    def test_ascii_scene_ansi_output_has_a_linear_size_bound(self) -> None:
+        config = self.config()
+        scene = AQUARIUM.OceanScene(40, 16, config, seed=7)
+        scene.ascii_backdrop = [
+            [
+                ("▓", ((x * 17) % 256, (y * 29) % 256, ((x + y) * 11) % 256))
+                for x in range(scene.width)
+            ]
+            for y in range(scene.height)
+        ]
+        rendered = scene.render().ansi()
+        self.assertLess(len(rendered), scene.width * scene.height * 32)
+        self.assertIn("\x1b[38;2;", rendered)
+
+
 class DismissalInputTests(unittest.TestCase):
     def test_pointer_motion_follows_setting(self) -> None:
         report = b"\x1b[<35;42;9M"
@@ -195,6 +308,7 @@ class AudioTests(unittest.TestCase):
         arguments = AQUARIUM.parse_args(["--audio-test"])
         self.assertEqual(arguments.audio_test, 8.0)
         self.assertTrue(AQUARIUM.parse_args(["--check-backdrop"]).check_backdrop)
+        self.assertTrue(AQUARIUM.parse_args(["--ascii-preview"]).ascii_preview)
 
 
 class IdleIntegrationTests(unittest.TestCase):

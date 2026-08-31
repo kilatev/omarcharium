@@ -39,7 +39,7 @@ The Python renderer independently normalizes the same public configuration contr
 
 `OceanScene` renders a fixed layer stack:
 
-1. background source;
+1. background source (Plain Depth, Pelagic Field, Custom Image, or ASCII-fied Image);
 2. optional pelagic current, scanline, and particle effects;
 3. water and habitat;
 4. fish;
@@ -47,10 +47,11 @@ The Python renderer independently normalizes the same public configuration contr
 
 Backdrop effects are independent from the source so the same bounded terminal-native treatment can compose over built-in and user-selected sources. Each frame then advances positions from monotonic time, wraps entities at scene boundaries, paints into a cell buffer, emits ANSI truecolor only when the active foreground color changes, and erases the unpainted remainder of every row.
 
-For Custom Image, `RasterBackdrop` validates a local bounded image and preprocesses it once through ImageMagick. The cache key includes the canonical path, size, modification time, fit, and dimming. Ghostty and Kitty receive the resulting PNG through a negative-z Kitty graphics placement; resize sends a new placement without decoding again. Alacritty and Foot retain the terminal-native layers and show a plain-depth fallback notice.
+For **Custom Image**, `RasterBackdrop` validates a local bounded image and preprocesses it once through ImageMagick. The cache key includes the canonical path, size, modification time, fit, and dimming. Ghostty and Kitty receive the resulting PNG through a negative-z Kitty graphics placement; resize sends a new placement without decoding again. Alacritty and Foot retain the terminal-native layers and show a plain-depth fallback notice.
+
+For **ASCII-fied Image**, `AsciiBackdrop` samples the image at a cell aspect ratio, applies Bayer 4×4 dither, maps luminance to a glyph ramp or block set, and emits a compact binary cache (`ascii-*.bin`) keyed by terminal geometry, ASCII settings, image metadata, fit, dimming, and the active palette. Each cell stores one glyph index and one RGB triplet. The grid is bounded to 600×240 cells. Resize re-prepares at the new geometry and reuses the cache when the signature matches. The cached grid feeds the same ANSI renderer used by pelagic and plain backdrops.
 
 Sprites contain only single-cell glyphs. A mirror translation reverses direction without maintaining duplicate left-facing art. `--seed` makes snapshots deterministic for tests and visual debugging.
-
 The terminal enters an alternate screen, hides the cursor, and enables SGR any-motion mouse reporting. A bounded input decoder distinguishes pointer motion from clicks and keyboard bytes, including fragmented reports. Cleanup restores every terminal mode on normal exit or signal. Accepted dismissal input closes all monitor instances through the standard Omarchy screensaver class.
 
 ## Multi-monitor and lock integration
@@ -78,7 +79,7 @@ The synthesis combines slowly filtered noise, water motion, and sparse frequency
 | Plugin source | Read-only at runtime |
 | `~/.config/omarcharium/config.json` | User configuration read/write |
 | Selected backdrop image | Local read-only input |
-| `~/.cache/omarcharium/` | Bounded derived backdrop PNGs and locks |
+| `~/.cache/omarcharium/` | Bounded derived backdrop PNGs, ASCII grids, and locks |
 | `~/.local/state/omarcharium/` | Toggle ownership marker |
 | `$XDG_RUNTIME_DIR/omarcharium-audio.lock` | Ephemeral audio leadership lock |
 | `/usr/share/omarchy/` | Read-only terminal defaults; never modified |

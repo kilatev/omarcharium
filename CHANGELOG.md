@@ -2,6 +2,15 @@
 
 All notable changes are documented here. This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.0.4] - 2026-08-31
+
+### Added
+
+- ASCII-fied local image backdrop source with glyph, colour, and dither controls.
+- Deterministic cell-aspect ImageMagick sampling, binary cache keyed by settings and geometry, and bounded ANSI output.
+- Independent pelagic effects layer atop ASCII backdrops.
+- `--ascii-preview` and deterministic `--snapshot` integration.
+
 ## [1.0.3] - 2026-08-31
 
 ### Added

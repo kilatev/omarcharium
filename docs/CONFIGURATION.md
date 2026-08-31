@@ -30,17 +30,22 @@ Each species has an independent exact population. Setting a species to zero remo
 
 | Setting | Range | Default | Effect |
 |---|---:|---:|---|
-| Source | Plain Depth, Pelagic Field, Custom Image | Plain Depth | Base layer behind the habitat |
+| Source | Plain Depth, Pelagic Field, Custom Image, ASCII | Plain Depth | Base layer behind the habitat |
+| ASCII detail | 25–100% | 70% | Cell sampling resolution relative to terminal size |
+| ASCII glyph set | Ramp, Blocks | Ramp | Character set used for luminance mapping |
+| ASCII colour mode | Truecolour, Palette, Monochrome | Truecolour | How source colours are mapped per cell |
+| ASCII dither | On/off | On | Bayer 4×4 ordered dither for smoother gradients |
 | Image path | Local JPEG, PNG, GIF, BMP, or WebP | Empty | Selected image; only the first animated frame is used |
 | Image fit | Cover, contain, center | Cover | Preprocessing crop and placement behavior |
 | Image dimming | 0–90% | 45% | Reduces image brightness beneath fish and telemetry |
 | Pelagic effects | On/off | Off | Animated current bands, scanlines, and depth particles |
 | Effect intensity | 0–100% | 55% | Density of the optional effects layer |
 
-The background source and effects are independent. Pelagic effects can run over Plain Depth, Pelagic Field, or a custom image.
+The background source and effects are independent. Pelagic effects can run over Plain Depth, Pelagic Field, a custom image, or an ASCII-fied image.
+
+**ASCII-fied Image** converts the selected local image into a cell grid cached under `~/.cache/omarcharium/ascii-*.bin`. The cache key includes terminal geometry, ASCII settings, image metadata, fit mode, dimming, and the active palette. Each cell stores one glyph and one true-colour RGB triplet. The bounded grid (max 600×240 cells) renders deterministically through the existing ANSI pipeline. `--ascii-preview` emits the plain-text grid for scripting; `--snapshot` includes it in full frames.
 
 **Custom Image** uses Omarchy's fullscreen image picker. The renderer accepts local files only, limits inputs to 32 MiB and 24 megapixels, preprocesses once through ImageMagick, and caches the dimmed fit under `~/.cache/omarcharium/`. Ghostty and Kitty receive the cached PNG through the Kitty graphics protocol at negative z-order. Alacritty and Foot display a clear plain-depth fallback while preserving habitat, fish, telemetry, and optional effects.
-
 ## Ambience
 
 Audio is off by default. When enabled, `volume` controls the generated stream from 0–100%. Only one monitor instance emits audio.
@@ -104,12 +109,52 @@ Disable automatic immersion to keep tray and manual launching while restoring th
 ```
 
 Unknown keys are ignored. Missing and malformed values fall back to packaged defaults; numeric values are clamped to supported ranges.
-
-## Command-line diagnostics
+{
+  "schemaVersion": 1,
+  "species": {
+    "neon_tetra": 10,
+    "clownfish": 4,
+    "angelfish": 3,
+    "discus": 3,
+    "butterflyfish": 2,
+    "royal_tang": 3,
+    "betta": 1,
+    "puffer": 2
+  },
+  "art": {
+    "palette": "lagoon",
+    "bubbleDensity": 55,
+    "current": 1.0,
+    "showTelemetry": true
+  },
+  "backdrop": {
+    "source": "ascii",
+    "imagePath": "/home/user/Pictures/reef.png",
+    "fitMode": "cover",
+    "dimming": 35,
+    "ascii": {
+      "detail": 70,
+      "glyphMode": "ramp",
+      "colorMode": "truecolor",
+      "dither": true
+    },
+    "effectsEnabled": true,
+    "effectIntensity": 35
+  },
+  "sound": {
+    "enabled": false,
+    "volume": 24
+  },
+  "integration": {
+    "idleEnabled": true,
+    "exitOnPointerMotion": true
+  }
+}
+```
 
 ```sh
-# Print the effective normalized configuration
-python3 scripts/aquarium.py --check-config
+# Render only the ASCII-fied backdrop
+python3 scripts/aquarium.py --ascii-preview --width 100 --height 32
 
 # Produce deterministic plain-text art without opening a terminal surface
 python3 scripts/aquarium.py --snapshot --width 120 --height 36 --seed 7
