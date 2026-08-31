@@ -2,6 +2,13 @@
 
 All notable changes are documented here. This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] - 2026-08-31
+
+### Added
+
+- Optional pointer-motion dismissal while preserving click and keyboard exit behavior.
+- Buffered SGR mouse-event classification with safe terminal-mode restoration.
+
 ## [1.0.0] - 2026-08-31
 
 ### Added
@@ -18,4 +25,5 @@ All notable changes are documented here. This project follows [Semantic Versioni
 - Deterministic renderer snapshots, configuration normalization, and behavioral tests.
 - Marketplace manifest, preview artwork, actual screenshots, contributor guide, security policy, and CI validation.
 
+[1.0.1]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.1
 [1.0.0]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.0

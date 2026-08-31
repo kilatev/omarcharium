@@ -82,7 +82,8 @@ No Python package, compiled extension, bundled recording, network service, or se
 | **Begin Immersion** | Save parameters and launch on every monitor |
 | **Surface** | Close every active aquarium window |
 | **Test 8s** | Play three diagnostic tones, then generated water ambience |
-| Any key, click, or pointer motion | Return to the desktop from the screensaver |
+| Any key or click | Return to the desktop from the screensaver |
+| Pointer motion | Return to the desktop when **Exit on pointer movement** is enabled |
 | Escape | Close the control room |
 | Enter | Begin immersion from the control room |
 | Up / Down | Scroll control-room parameters |
@@ -111,7 +112,7 @@ The control room writes settings atomically to:
 ~/.config/omarcharium/config.json
 ```
 
-Every species has an exact independent population. The water column controls palette, bubbles, current velocity, and terminal telemetry. The ambience section controls generation and volume. The idle section selects automatic or manual immersion.
+Every species has an exact independent population. The water column controls palette, bubbles, current velocity, and terminal telemetry. Ambience controls generation and volume. Surface controls can keep the reef visible during pointer movement while clicks and keyboard input continue to dismiss it.
 
 See the complete [configuration reference](docs/CONFIGURATION.md) for limits, defaults, JSON schema, and diagnostics.
 

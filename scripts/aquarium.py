@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Omarcharium: a terminal-native tropical aquarium for Omarchy.
 
-The interactive path paints an ANSI true-colour scene until any keyboard or
-mouse input arrives.  The snapshot and configuration modes are deterministic,
+The interactive path paints an ANSI true-colour scene until configured
+keyboard or mouse input arrives. The snapshot and configuration modes are deterministic,
 which keeps the renderer testable without a compositor or terminal emulator.
 """
 
@@ -179,6 +179,9 @@ def normalise_config(raw: Any) -> dict[str, Any]:
         },
         "integration": {
             "idleEnabled": bool(integration.get("idleEnabled", fallback_integration.get("idleEnabled", True))),
+            "exitOnPointerMotion": integration.get("exitOnPointerMotion")
+            if isinstance(integration.get("exitOnPointerMotion"), bool)
+            else bool(fallback_integration.get("exitOnPointerMotion", True)),
         },
     }
 
@@ -456,7 +459,11 @@ class OceanScene:
         canvas.text(1, 0, title[: max(0, self.width - 2)], palette["text"])
         if len(right) + 1 < self.width:
             canvas.text(self.width - len(right) - 1, 0, right, palette["caustic"])
-        footer = "[ any key / pointer movement returns to surface ]"
+        footer = (
+            "[ any key / click / pointer movement returns to surface ]"
+            if self.config["integration"]["exitOnPointerMotion"]
+            else "[ any key / click returns to surface ]"
+        )
         if len(footer) + 2 < self.width:
             canvas.text((self.width - len(footer)) // 2, self.height - 1, footer, palette["dim"])
 
@@ -609,6 +616,63 @@ class AmbientAudio:
             self.lock_file = None
 
 
+class DismissalInput:
+    """Classify SGR mouse reports without swallowing keyboard input."""
+
+    _MOUSE_PREFIX = b"\x1b[<"
+
+    def __init__(self, exit_on_pointer_motion: bool, pending_timeout: float = 0.06) -> None:
+        self.exit_on_pointer_motion = exit_on_pointer_motion
+        self.pending_timeout = pending_timeout
+        self.buffer = bytearray()
+        self.pending_since: float | None = None
+
+    def feed(self, data: bytes, now: float | None = None) -> bool:
+        timestamp = time.monotonic() if now is None else now
+        if data:
+            if not self.buffer:
+                self.pending_since = timestamp
+            self.buffer.extend(data)
+
+        while self.buffer:
+            probe = bytes(self.buffer)
+            if len(probe) < len(self._MOUSE_PREFIX):
+                return not self._MOUSE_PREFIX.startswith(probe)
+            if not probe.startswith(self._MOUSE_PREFIX):
+                return True
+
+            terminator = -1
+            for index, byte in enumerate(self.buffer[3:], start=3):
+                if byte in (ord("M"), ord("m")):
+                    terminator = index
+                    break
+                if byte not in b"0123456789;":
+                    return True
+
+            if terminator < 0:
+                return len(self.buffer) > 32
+
+            fields = bytes(self.buffer[3:terminator]).split(b";")
+            if len(fields) != 3 or not all(field.isdigit() for field in fields):
+                return True
+            button_code = int(fields[0])
+            del self.buffer[:terminator + 1]
+            if button_code & 32:
+                if self.exit_on_pointer_motion:
+                    return True
+            else:
+                return True
+
+        self.pending_since = None
+        return False
+
+    def expired(self, now: float | None = None) -> bool:
+        if not self.buffer or self.pending_since is None:
+            return False
+        timestamp = time.monotonic() if now is None else now
+        return timestamp - self.pending_since >= self.pending_timeout
+
+
 class TerminalSession:
     def __init__(self, background: RGB) -> None:
         self.background = background
@@ -662,6 +726,7 @@ def run_interactive(config: dict[str, Any], seed: int, sound_override: bool | No
     runtime_dir = Path(os.environ.get("XDG_RUNTIME_DIR", f"/tmp/omarcharium-{os.getuid()}"))
     sound_enabled = config["sound"]["enabled"] if sound_override is None else sound_override
     audio = AmbientAudio(config["sound"]["volume"], runtime_dir)
+    dismissal_input = DismissalInput(config["integration"]["exitOnPointerMotion"])
     stop_requested = False
     user_dismissed = False
 
@@ -682,10 +747,13 @@ def run_interactive(config: dict[str, Any], seed: int, sound_override: bool | No
             next_frame = started
             while not stop_requested:
                 now = time.monotonic()
-                if now - started > 0.35 and select.select([sys.stdin], [], [], 0)[0]:
-                    os.read(sys.stdin.fileno(), 4096)
+                if dismissal_input.expired(now):
                     user_dismissed = True
                     break
+                if now - started > 0.35 and select.select([sys.stdin], [], [], 0)[0]:
+                    if dismissal_input.feed(os.read(sys.stdin.fileno(), 4096), now):
+                        user_dismissed = True
+                        break
                 new_width, new_height = terminal_size()
                 scene.resize(new_width, new_height)
                 scene.update(now - previous)

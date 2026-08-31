@@ -18,7 +18,7 @@ Item {
     species: { neon_tetra: 10, clownfish: 4, angelfish: 3, discus: 3, butterflyfish: 2, royal_tang: 3, betta: 1, puffer: 2 },
     art: { palette: "lagoon", bubbleDensity: 55, current: 1.0, showTelemetry: true },
     sound: { enabled: false, volume: 24 },
-    integration: { idleEnabled: true }
+    integration: { idleEnabled: true, exitOnPointerMotion: true }
   })
   property var speciesDefinitions: [
     { key: "neon_tetra", name: "Neon tetra", callSign: "NEON//SHOAL", description: "electric schooling streaks", accent: "#45f3ff", max: 20 },
@@ -93,6 +93,7 @@ Item {
     next.sound.volume = Math.round(clamp(sound.volume, 0, 100, defaults.sound.volume))
     var integration = incoming.integration && typeof incoming.integration === "object" ? incoming.integration : ({})
     next.integration.idleEnabled = integration.idleEnabled === undefined ? defaults.integration.idleEnabled : !!integration.idleEnabled
+    next.integration.exitOnPointerMotion = typeof integration.exitOnPointerMotion === "boolean" ? integration.exitOnPointerMotion : defaults.integration.exitOnPointerMotion
     return next
   }
 
@@ -144,9 +145,9 @@ Item {
     persist()
   }
 
-  function changeIntegration(value) {
+  function changeIntegration(key, value) {
     var next = clone(config)
-    next.integration.idleEnabled = !!value
+    next.integration[key] = !!value
     config = normalise(next)
     persist()
   }
@@ -782,7 +783,42 @@ Item {
                 color: root.config.integration.idleEnabled ? "#071218" : "#aec4c9"
                 Behavior on x { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
               }
-              MouseArea { anchors.fill: parent; onClicked: root.changeIntegration(!root.config.integration.idleEnabled) }
+              MouseArea { anchors.fill: parent; onClicked: root.changeIntegration("idleEnabled", !root.config.integration.idleEnabled) }
+            }
+          }
+
+          Text {
+            text: "SURFACE CONTROL"
+            color: "#8baab2"
+            font.family: root.fontFamily
+            font.pixelSize: 11
+            font.bold: true
+            font.letterSpacing: 2
+          }
+
+          Rectangle {
+            width: parent.width
+            height: 76
+            radius: 11
+            color: root.config.integration.exitOnPointerMotion ? "#241bb8c8" : "#160c252d"
+            border.width: 1
+            border.color: root.config.integration.exitOnPointerMotion ? root.accent : "#263e6670"
+
+            Text { x: 16; y: 13; text: "EXIT ON POINTER MOVEMENT"; color: "#d7eef2"; font.family: root.fontFamily; font.pixelSize: 12; font.bold: true }
+            Text { x: 16; y: 39; text: "clicks and keyboard input always return to the desktop"; color: "#718f98"; font.family: root.fontFamily; font.pixelSize: 10 }
+
+            Rectangle {
+              anchors { right: parent.right; rightMargin: 17; verticalCenter: parent.verticalCenter }
+              width: 48; height: 26; radius: 13
+              color: root.config.integration.exitOnPointerMotion ? root.accent : "#31454b"
+              Rectangle {
+                x: root.config.integration.exitOnPointerMotion ? parent.width - width - 3 : 3
+                anchors.verticalCenter: parent.verticalCenter
+                width: 20; height: 20; radius: 10
+                color: root.config.integration.exitOnPointerMotion ? "#071218" : "#aec4c9"
+                Behavior on x { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+              }
+              MouseArea { anchors.fill: parent; onClicked: root.changeIntegration("exitOnPointerMotion", !root.config.integration.exitOnPointerMotion) }
             }
           }
         }

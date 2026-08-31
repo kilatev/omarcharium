@@ -21,6 +21,7 @@
     "volume": 24
   },
   "integration": {
-    "idleEnabled": true
+    "idleEnabled": true,
+    "exitOnPointerMotion": true
   }
 }

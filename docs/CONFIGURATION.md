@@ -44,6 +44,10 @@ The test does not require a TTY. It plays three rising tones and then the same g
 
 Disable automatic immersion to keep tray and manual launching while restoring the stock visualizer behavior.
 
+## Surface control
+
+**Exit on pointer movement** defaults to on, matching the original screensaver behavior. Disable it to move the pointer without surfacing; mouse clicks and keyboard input always dismiss every monitor instance.
+
 ## JSON example
 
 ```json
@@ -70,7 +74,8 @@ Disable automatic immersion to keep tray and manual launching while restoring th
     "volume": 24
   },
   "integration": {
-    "idleEnabled": true
+    "idleEnabled": true,
+    "exitOnPointerMotion": true
   }
 }
 ```

@@ -23,7 +23,7 @@ class ConfigurationTests(unittest.TestCase):
             "species": {"neon_tetra": 999, "puffer": -4, "unknown": 12},
             "art": {"palette": "not-a-palette", "bubbleDensity": 155, "current": 0, "showTelemetry": 0},
             "sound": {"enabled": 1, "volume": "41"},
-            "integration": {"idleEnabled": False},
+            "integration": {"idleEnabled": False, "exitOnPointerMotion": False},
         })
 
         self.assertEqual(config["species"]["neon_tetra"], 20)
@@ -36,6 +36,11 @@ class ConfigurationTests(unittest.TestCase):
         self.assertTrue(config["sound"]["enabled"])
         self.assertEqual(config["sound"]["volume"], 41)
         self.assertFalse(config["integration"]["idleEnabled"])
+        self.assertFalse(config["integration"]["exitOnPointerMotion"])
+
+    def test_malformed_pointer_motion_setting_uses_safe_default(self) -> None:
+        config = AQUARIUM.normalise_config({"integration": {"exitOnPointerMotion": "false"}})
+        self.assertTrue(config["integration"]["exitOnPointerMotion"])
 
     def test_invalid_file_uses_complete_packaged_defaults(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -69,6 +74,28 @@ class RendererTests(unittest.TestCase):
         self.assertEqual(len(snapshot), 24)
         self.assertTrue(all(len(line) <= 80 for line in snapshot))
         self.assertIn("Y", "\n".join(snapshot))
+
+
+class DismissalInputTests(unittest.TestCase):
+    def test_pointer_motion_follows_setting(self) -> None:
+        report = b"\x1b[<35;42;9M"
+        self.assertTrue(AQUARIUM.DismissalInput(True).feed(report, now=1.0))
+        self.assertFalse(AQUARIUM.DismissalInput(False).feed(report, now=1.0))
+
+    def test_click_and_keyboard_always_dismiss(self) -> None:
+        decoder = AQUARIUM.DismissalInput(False)
+        self.assertTrue(decoder.feed(b"\x1b[<0;42;9M", now=1.0))
+        self.assertTrue(AQUARIUM.DismissalInput(False).feed(b"x", now=1.0))
+
+    def test_fragmented_motion_report_is_not_misclassified(self) -> None:
+        decoder = AQUARIUM.DismissalInput(False)
+        self.assertFalse(decoder.feed(b"\x1b[<35;42", now=1.0))
+        self.assertFalse(decoder.feed(b";9M", now=1.01))
+
+    def test_standalone_escape_expires_as_keyboard_input(self) -> None:
+        decoder = AQUARIUM.DismissalInput(False)
+        self.assertFalse(decoder.feed(b"\x1b", now=1.0))
+        self.assertTrue(decoder.expired(now=1.07))
 
 
 class AudioTests(unittest.TestCase):

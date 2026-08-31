@@ -47,7 +47,7 @@ The Python renderer independently normalizes the same public configuration contr
 
 Sprites contain only single-cell glyphs. A mirror translation reverses direction without maintaining duplicate left-facing art. `--seed` makes snapshots deterministic for tests and visual debugging.
 
-The terminal enters an alternate screen, hides the cursor, and enables SGR any-motion mouse reporting. Cleanup restores every terminal mode on normal exit or signal. User input dismisses all monitor instances through the standard Omarchy screensaver class.
+The terminal enters an alternate screen, hides the cursor, and enables SGR any-motion mouse reporting. A bounded input decoder distinguishes pointer motion from clicks and keyboard bytes, including fragmented reports. Cleanup restores every terminal mode on normal exit or signal. Accepted dismissal input closes all monitor instances through the standard Omarchy screensaver class.
 
 ## Multi-monitor and lock integration
 
