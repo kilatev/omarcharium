@@ -13,12 +13,11 @@ Item {
   property bool directoryReady: false
   property string pendingSaveText: ""
   property string statusLine: "CONFIGURATION SYNCHRONIZED"
-  property string asciiPreview: ""
   property var defaults: ({
     schemaVersion: 1,
     species: { neon_tetra: 10, clownfish: 4, angelfish: 3, discus: 3, butterflyfish: 2, royal_tang: 3, betta: 1, puffer: 2 },
     art: { palette: "lagoon", bubbleDensity: 55, current: 1.0, showTelemetry: true },
-    backdrop: { source: "plain", imagePath: "", fitMode: "cover", dimming: 45, ascii: { detail: 70, glyphMode: "ramp", colorMode: "truecolor", dither: true }, effectsEnabled: false, effectIntensity: 55 },
+    backdrop: { source: "plain", imagePath: "", fitMode: "cover", dimming: 45, effectsEnabled: false, effectIntensity: 55 },
     sound: { enabled: false, volume: 24 },
     integration: { idleEnabled: true, exitOnPointerMotion: true }
   })
@@ -93,18 +92,11 @@ Item {
     next.art.showTelemetry = art.showTelemetry === undefined ? defaults.art.showTelemetry : !!art.showTelemetry
     var backdrop = incoming.backdrop && typeof incoming.backdrop === "object" ? incoming.backdrop : ({})
     var backdropSource = String(backdrop.source || defaults.backdrop.source)
-    next.backdrop.source = ["pelagic", "image", "ascii"].indexOf(backdropSource) >= 0 ? backdropSource : "plain"
+    next.backdrop.source = ["pelagic", "image"].indexOf(backdropSource) >= 0 ? backdropSource : "plain"
     next.backdrop.imagePath = typeof backdrop.imagePath === "string" ? backdrop.imagePath : defaults.backdrop.imagePath
     var fitMode = String(backdrop.fitMode || defaults.backdrop.fitMode)
     next.backdrop.fitMode = ["cover", "contain", "center"].indexOf(fitMode) >= 0 ? fitMode : "cover"
     next.backdrop.dimming = Math.round(clamp(backdrop.dimming, 0, 90, defaults.backdrop.dimming))
-    var ascii = backdrop.ascii && typeof backdrop.ascii === "object" ? backdrop.ascii : ({})
-    next.backdrop.ascii.detail = Math.round(clamp(ascii.detail, 25, 100, defaults.backdrop.ascii.detail))
-    var glyphMode = String(ascii.glyphMode || defaults.backdrop.ascii.glyphMode)
-    next.backdrop.ascii.glyphMode = ["ramp", "blocks"].indexOf(glyphMode) >= 0 ? glyphMode : "ramp"
-    var colorMode = String(ascii.colorMode || defaults.backdrop.ascii.colorMode)
-    next.backdrop.ascii.colorMode = ["truecolor", "palette", "monochrome"].indexOf(colorMode) >= 0 ? colorMode : "truecolor"
-    next.backdrop.ascii.dither = typeof ascii.dither === "boolean" ? ascii.dither : defaults.backdrop.ascii.dither
     next.backdrop.effectsEnabled = typeof backdrop.effectsEnabled === "boolean" ? backdrop.effectsEnabled : defaults.backdrop.effectsEnabled
     next.backdrop.effectIntensity = Math.round(clamp(backdrop.effectIntensity, 0, 100, defaults.backdrop.effectIntensity))
     var sound = incoming.sound && typeof incoming.sound === "object" ? incoming.sound : ({})
@@ -162,15 +154,6 @@ Item {
     next.backdrop[key] = value
     config = normalise(next)
     persist()
-    if (config.backdrop.source === "ascii") asciiPreviewTimer.restart()
-  }
-
-  function changeAscii(key, value) {
-    var next = clone(config)
-    next.backdrop.ascii[key] = value
-    config = normalise(next)
-    persist()
-    asciiPreviewTimer.restart()
   }
 
   function selectBackdropImage() {
@@ -183,7 +166,7 @@ Item {
   function clearBackdropImage() {
     var next = clone(config)
     next.backdrop.imagePath = ""
-    if (next.backdrop.source === "image" || next.backdrop.source === "ascii") next.backdrop.source = "plain"
+    if (next.backdrop.source === "image") next.backdrop.source = "plain"
     config = normalise(next)
     persist()
   }
@@ -287,16 +270,6 @@ Item {
     }
   }
 
-  Process {
-    id: asciiPreviewProcess
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: root.asciiPreview = String(text || "").replace(/\n+$/, "")
-    }
-    onExited: function(exitCode) {
-      if (exitCode !== 0) root.asciiPreview = "ASCII PREVIEW UNAVAILABLE"
-    }
-  }
 
   FileView {
     id: defaultsFile
@@ -335,7 +308,6 @@ Item {
       try {
         root.config = root.normalise(JSON.parse(text()))
         root.statusLine = "CONFIGURATION SYNCHRONIZED"
-        if (root.config.backdrop.source === "ascii") asciiPreviewTimer.restart()
       } catch (error) {
         root.config = root.clone(root.defaults)
         root.statusLine = "INVALID CONFIGURATION · SAFE DEFAULTS ACTIVE"
@@ -357,19 +329,6 @@ Item {
     }
   }
 
-  Timer {
-    id: asciiPreviewTimer
-    interval: 280
-    repeat: false
-    onTriggered: {
-      if (!root.pluginDir || !root.config.backdrop.imagePath || asciiPreviewProcess.running) return
-      asciiPreviewProcess.command = [
-        "python3", root.pluginDir + "/scripts/aquarium.py",
-        "--config", root.configPath, "--ascii-preview", "--width", "48", "--height", "16"
-      ]
-      asciiPreviewProcess.running = true
-    }
-  }
 
   Component.onCompleted: ensureDirectory()
 
@@ -791,7 +750,7 @@ Item {
 
           Rectangle {
             width: parent.width
-            height: root.config.backdrop.source === "ascii" ? 472 : 334
+            height: 334
             radius: 11
             color: "#160c252d"
             border.width: 1
@@ -805,8 +764,7 @@ Item {
                 model: [
                   { key: "plain", label: "PLAIN" },
                   { key: "pelagic", label: "PELAGIC" },
-                  { key: "image", label: "IMAGE" },
-                  { key: "ascii", label: "ASCII" }
+                  { key: "image", label: "IMAGE" }
                 ]
                 Rectangle {
                   id: backdropChip
@@ -819,7 +777,7 @@ Item {
                   MouseArea {
                     anchors.fill: parent
                     onClicked: {
-                      if ((backdropChip.modelData.key === "image" || backdropChip.modelData.key === "ascii") && !root.config.backdrop.imagePath) root.selectBackdropImage()
+                      if (backdropChip.modelData.key === "image" && !root.config.backdrop.imagePath) root.selectBackdropImage()
                       else root.changeBackdrop("source", backdropChip.modelData.key)
                     }
                   }
@@ -839,13 +797,12 @@ Item {
                 sourceSize.width: 352
                 sourceSize.height: 184
                 fillMode: Image.PreserveAspectCrop
-                visible: root.config.backdrop.imagePath !== "" && root.config.backdrop.source !== "ascii"
+                visible: root.config.backdrop.imagePath !== ""
                 asynchronous: true
                 cache: false
               }
               Rectangle { anchors.fill: parent; color: "#59000000"; visible: root.config.backdrop.imagePath !== "" }
-              Text { anchors.centerIn: parent; width: parent.width - 18; visible: root.config.backdrop.source !== "ascii"; text: root.config.backdrop.imagePath ? "SELECTED IMAGE" : "NO IMAGE SELECTED"; color: "#b8d4d8"; font.family: root.fontFamily; font.pixelSize: 10; font.bold: true; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap }
-              Text { anchors.fill: parent; anchors.margins: 5; visible: root.config.backdrop.source === "ascii"; text: root.asciiPreview || "GENERATING ASCII PREVIEW..."; color: root.accent; font.family: root.fontFamily; font.pixelSize: 5; lineHeight: 0.84; wrapMode: Text.NoWrap; clip: true }
+              Text { anchors.centerIn: parent; width: parent.width - 18; text: root.config.backdrop.imagePath ? "SELECTED IMAGE" : "NO IMAGE SELECTED"; color: "#b8d4d8"; font.family: root.fontFamily; font.pixelSize: 10; font.bold: true; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap }
             }
 
             Rectangle {
@@ -853,7 +810,6 @@ Item {
               width: 118; height: 36; radius: 7
               color: backdropPicker.running ? "#335ce6df" : "#1cffffff"
               border.width: 1; border.color: "#47778a92"
-              Text { anchors.centerIn: parent; text: backdropPicker.running ? "OPENING..." : "CHOOSE IMAGE"; color: root.accent; font.family: root.fontFamily; font.pixelSize: 10; font.bold: true }
               MouseArea { anchors.fill: parent; enabled: !backdropPicker.running; onClicked: root.selectBackdropImage() }
             }
             Rectangle {
@@ -901,82 +857,17 @@ Item {
               }
             }
 
-            Item {
-              x: 16; y: 272
-              width: parent.width - 32; height: 132
-              visible: root.config.backdrop.source === "ascii"
 
-              Text { x: 0; y: 8; text: "ASCII DETAIL"; color: "#a9c6cc"; font.family: root.fontFamily; font.pixelSize: 11 }
-              Row {
-                anchors { right: parent.right; top: parent.top }
-                spacing: 8
-                Rectangle {
-                  width: 34; height: 30; radius: 6; color: "#1cffffff"
-                  Text { anchors.centerIn: parent; text: "−"; color: "#cce8ec"; font.family: root.fontFamily; font.pixelSize: 17 }
-                  MouseArea { anchors.fill: parent; onClicked: root.changeAscii("detail", root.config.backdrop.ascii.detail - 5) }
-                }
-                Text { width: 54; height: 30; text: root.config.backdrop.ascii.detail + "%"; color: root.accent; font.family: root.fontFamily; font.pixelSize: 14; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                Rectangle {
-                  width: 34; height: 30; radius: 6; color: "#1cffffff"
-                  Text { anchors.centerIn: parent; text: "+"; color: "#cce8ec"; font.family: root.fontFamily; font.pixelSize: 16 }
-                  MouseArea { anchors.fill: parent; onClicked: root.changeAscii("detail", root.config.backdrop.ascii.detail + 5) }
-                }
-              }
-
-              Text { x: 0; y: 50; text: "GLYPHS"; color: "#a9c6cc"; font.family: root.fontFamily; font.pixelSize: 11 }
-              Row {
-                x: 78; y: 40; spacing: 7
-                Repeater {
-                  model: ["ramp", "blocks"]
-                  Rectangle {
-                    id: glyphChip
-                    required property string modelData
-                    width: 82; height: 30; radius: 6
-                    color: root.config.backdrop.ascii.glyphMode === glyphChip.modelData ? "#335ce6df" : "#1cffffff"
-                    Text { anchors.centerIn: parent; text: glyphChip.modelData.toUpperCase(); color: root.config.backdrop.ascii.glyphMode === glyphChip.modelData ? root.accent : "#91adb3"; font.family: root.fontFamily; font.pixelSize: 9; font.bold: true }
-                    MouseArea { anchors.fill: parent; onClicked: root.changeAscii("glyphMode", glyphChip.modelData) }
-                  }
-                }
-              }
-
-              Text { x: 0; y: 92; text: "COLOR"; color: "#a9c6cc"; font.family: root.fontFamily; font.pixelSize: 11 }
-              Row {
-                x: 78; y: 82; spacing: 7
-                Repeater {
-                  model: [
-                    { key: "truecolor", label: "TRUE" },
-                    { key: "palette", label: "PALETTE" },
-                    { key: "monochrome", label: "MONO" }
-                  ]
-                  Rectangle {
-                    id: colorChip
-                    required property var modelData
-                    width: 72; height: 30; radius: 6
-                    color: root.config.backdrop.ascii.colorMode === colorChip.modelData.key ? "#335ce6df" : "#1cffffff"
-                    Text { anchors.centerIn: parent; text: colorChip.modelData.label; color: root.config.backdrop.ascii.colorMode === colorChip.modelData.key ? root.accent : "#91adb3"; font.family: root.fontFamily; font.pixelSize: 9; font.bold: true }
-                    MouseArea { anchors.fill: parent; onClicked: root.changeAscii("colorMode", colorChip.modelData.key) }
-                  }
-                }
-              }
-              Rectangle {
-                anchors { right: parent.right; top: parent.top; topMargin: 82 }
-                width: 92; height: 30; radius: 6
-                color: root.config.backdrop.ascii.dither ? "#335ce6df" : "#1cffffff"
-                Text { anchors.centerIn: parent; text: root.config.backdrop.ascii.dither ? "DITHER ON" : "DITHER OFF"; color: root.config.backdrop.ascii.dither ? root.accent : "#91adb3"; font.family: root.fontFamily; font.pixelSize: 9; font.bold: true }
-                MouseArea { anchors.fill: parent; onClicked: root.changeAscii("dither", !root.config.backdrop.ascii.dither) }
-              }
-            }
-
-            Text { x: 16; y: root.config.backdrop.source === "ascii" ? 424 : 286; text: "PELAGIC EFFECT OVERLAY"; color: "#a9c6cc"; font.family: root.fontFamily; font.pixelSize: 11 }
+            Text { x: 16; y: 286; text: "PELAGIC EFFECT OVERLAY"; color: "#a9c6cc"; font.family: root.fontFamily; font.pixelSize: 11 }
             Rectangle {
-              x: 180; y: root.config.backdrop.source === "ascii" ? 416 : 278
+              x: 180; y: 278
               width: 48; height: 26; radius: 13
               color: root.config.backdrop.effectsEnabled ? root.accent : "#31454b"
               Rectangle { x: root.config.backdrop.effectsEnabled ? parent.width - width - 3 : 3; anchors.verticalCenter: parent.verticalCenter; width: 20; height: 20; radius: 10; color: root.config.backdrop.effectsEnabled ? "#071218" : "#aec4c9"; Behavior on x { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } } }
               MouseArea { anchors.fill: parent; onClicked: root.changeBackdrop("effectsEnabled", !root.config.backdrop.effectsEnabled) }
             }
             Row {
-              anchors { right: parent.right; rightMargin: 16; top: parent.top; topMargin: root.config.backdrop.source === "ascii" ? 414 : 276 }
+              anchors { right: parent.right; rightMargin: 16; top: parent.top; topMargin: 276 }
               spacing: 8
               Rectangle {
                 width: 34; height: 30; radius: 6; color: "#1cffffff"

@@ -33,7 +33,6 @@ Repository-specific guidance for future development sessions. Keep machine- and 
 
 - `scripts/aquarium.py` owns animation, input, image conversion, and audio. The shell only launches it.
 - Custom raster images are validated and converted once with bounded ImageMagick resources. Ghostty and Kitty use negative-z Kitty graphics placement; other terminals use the explicit plain fallback.
-- ASCII images are cached by source metadata, terminal geometry, fit, dimming, detail, glyph mode, color mode, dithering, and palette. Resize regeneration must use the cache rather than convert per frame.
 - Preserve the established render order: source, optional pelagic effects, water/habitat, fish, status display, notices.
 
 ## Audio

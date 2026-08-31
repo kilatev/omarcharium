@@ -21,12 +21,6 @@
     "imagePath": "",
     "fitMode": "cover",
     "dimming": 45,
-    "ascii": {
-      "detail": 70,
-      "glyphMode": "ramp",
-      "colorMode": "truecolor",
-      "dither": true
-    },
     "effectsEnabled": false,
     "effectIntensity": 55
   },

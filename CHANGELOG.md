@@ -2,6 +2,16 @@
 
 All notable changes are documented here. This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.0.6] - 2026-08-31
+
+### Removed
+
+- Removed experimental image-to-ASCII backdrop in favor of high-fidelity native hardware-accelerated raster backdrops (Ghostty/Kitty) and procedural Pelagic Field layers.
+
+### Fixed
+
+- Restored seamless backdrop selection in the control room without unwanted source switching.
+
 ## [1.0.5] - 2026-08-31
 
 ### Added
@@ -60,6 +70,7 @@ All notable changes are documented here. This project follows [Semantic Versioni
 - Deterministic renderer snapshots, configuration normalization, and behavioral tests.
 - Marketplace manifest, preview artwork, actual screenshots, contributor guide, security policy, and CI validation.
 
+[1.0.6]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.6
 [1.0.5]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.5
 [1.0.4]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.4
 [1.0.3]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.3
