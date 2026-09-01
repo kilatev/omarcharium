@@ -16,7 +16,7 @@ Item {
   property var defaults: ({
     schemaVersion: 1,
     species: { neon_tetra: 10, clownfish: 4, angelfish: 3, discus: 3, butterflyfish: 2, royal_tang: 3, betta: 1, puffer: 2 },
-    art: { palette: "lagoon", bubbleDensity: 55, current: 1.0, showTelemetry: true, vegetationVolume: 50 },
+    art: { palette: "lagoon", bubbleDensity: 55, current: 1.0, showTelemetry: true, reefDensity: 50 },
     backdrop: { source: "plain", imagePath: "", fitMode: "cover", dimming: 45, effectsEnabled: false, effectIntensity: 55 },
     sound: { enabled: false, volume: 24 },
     integration: { idleEnabled: true, exitOnPointerMotion: true }
@@ -90,7 +90,7 @@ Item {
     next.art.bubbleDensity = Math.round(clamp(art.bubbleDensity, 0, 100, defaults.art.bubbleDensity))
     next.art.current = Math.round(clamp(art.current, 0.35, 1.8, defaults.art.current) * 100) / 100
     next.art.showTelemetry = art.showTelemetry === undefined ? defaults.art.showTelemetry : !!art.showTelemetry
-    next.art.vegetationVolume = Math.round(clamp(art.vegetationVolume, 0, 100, defaults.art.vegetationVolume))
+    next.art.reefDensity = Math.round(clamp(art.reefDensity === undefined ? art.vegetationVolume : art.reefDensity, 0, 100, defaults.art.reefDensity))
     var backdrop = incoming.backdrop && typeof incoming.backdrop === "object" ? incoming.backdrop : ({})
     var backdropSource = String(backdrop.source || defaults.backdrop.source)
     next.backdrop.source = ["pelagic", "image"].indexOf(backdropSource) >= 0 ? backdropSource : "plain"
@@ -696,7 +696,7 @@ Item {
 
             Text { x: 16; y: 96; text: "BUBBLE DENSITY"; color: "#a9c6cc"; font.family: root.fontFamily; font.pixelSize: 11 }
             Text { x: 16; y: 143; text: "CURRENT VELOCITY"; color: "#a9c6cc"; font.family: root.fontFamily; font.pixelSize: 11 }
-            Text { x: 16; y: 190; text: "VEGETATION VOLUME"; color: "#a9c6cc"; font.family: root.fontFamily; font.pixelSize: 11 }
+            Text { x: 16; y: 190; text: "REEF DENSITY"; color: "#a9c6cc"; font.family: root.fontFamily; font.pixelSize: 11 }
 
             Row {
               anchors { right: parent.right; rightMargin: 16; top: parent.top; topMargin: 88 }
@@ -736,13 +736,13 @@ Item {
               Rectangle {
                 width: 34; height: 30; radius: 6; color: "#1cffffff"
                 Text { anchors.centerIn: parent; text: "−"; color: "#cce8ec"; font.family: root.fontFamily; font.pixelSize: 17 }
-                MouseArea { anchors.fill: parent; onClicked: root.changeArt("vegetationVolume", root.config.art.vegetationVolume - 5) }
+                MouseArea { anchors.fill: parent; onClicked: root.changeArt("reefDensity", root.config.art.reefDensity - 5) }
               }
-              Text { width: 54; height: 30; text: root.config.art.vegetationVolume + "%"; color: root.accent; font.family: root.fontFamily; font.pixelSize: 14; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+              Text { width: 54; height: 30; text: root.config.art.reefDensity + "%"; color: root.accent; font.family: root.fontFamily; font.pixelSize: 14; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
               Rectangle {
                 width: 34; height: 30; radius: 6; color: "#1cffffff"
                 Text { anchors.centerIn: parent; text: "+"; color: "#cce8ec"; font.family: root.fontFamily; font.pixelSize: 16 }
-                MouseArea { anchors.fill: parent; onClicked: root.changeArt("vegetationVolume", root.config.art.vegetationVolume + 5) }
+                MouseArea { anchors.fill: parent; onClicked: root.changeArt("reefDensity", root.config.art.reefDensity + 5) }
               }
             }
 

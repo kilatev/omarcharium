@@ -25,7 +25,7 @@ Each species has an independent exact population. Setting a species to zero remo
 | Bubble density | 0–100% | 55% | Number of animated bubble entities |
 | Current | 0.35–1.8× | 1.0× | Horizontal fish velocity multiplier |
 | Status display | On/off | On | Header, biomass, palette, and dismissal footer; rendered locally |
-| Vegetation volume | 0–100% | 50% | Height and density of kelp columns and marine flora |
+| Reef density | 0–100% | 50% | Height, branch tiers, and density of coral formations, kelp stalks, and sea flora |
 
 The JSON key remains `showTelemetry` for configuration compatibility. It only toggles this local status display; Omarcharium does not collect or transmit usage data.
 
@@ -85,7 +85,7 @@ Disable automatic immersion to keep tray and manual launching while restoring th
     "bubbleDensity": 55,
     "current": 1.0,
     "showTelemetry": true,
-    "vegetationVolume": 50
+    "reefDensity": 50
   },
   "backdrop": {
     "source": "image",

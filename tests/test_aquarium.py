@@ -21,7 +21,7 @@ class ConfigurationTests(unittest.TestCase):
     def test_normalisation_clamps_public_configuration_contract(self) -> None:
         config = AQUARIUM.normalise_config({
             "species": {"neon_tetra": 999, "puffer": -4, "unknown": 12},
-            "art": {"palette": "not-a-palette", "bubbleDensity": 155, "current": 0, "showTelemetry": 0, "vegetationVolume": 400},
+            "art": {"palette": "not-a-palette", "bubbleDensity": 155, "current": 0, "showTelemetry": 0, "reefDensity": 400},
             "backdrop": {"source": "unknown", "effectsEnabled": "yes", "effectIntensity": 400},
             "sound": {"enabled": 1, "volume": "41"},
             "integration": {"idleEnabled": False, "exitOnPointerMotion": False},
@@ -34,7 +34,7 @@ class ConfigurationTests(unittest.TestCase):
         self.assertEqual(config["art"]["bubbleDensity"], 100)
         self.assertEqual(config["art"]["current"], 0.35)
         self.assertFalse(config["art"]["showTelemetry"])
-        self.assertEqual(config["art"]["vegetationVolume"], 100)
+        self.assertEqual(config["art"]["reefDensity"], 100)
         self.assertEqual(config["backdrop"]["source"], "plain")
         self.assertFalse(config["backdrop"]["effectsEnabled"])
         self.assertEqual(config["backdrop"]["effectIntensity"], 100)
@@ -42,6 +42,10 @@ class ConfigurationTests(unittest.TestCase):
         self.assertEqual(config["sound"]["volume"], 41)
         self.assertFalse(config["integration"]["idleEnabled"])
         self.assertFalse(config["integration"]["exitOnPointerMotion"])
+
+    def test_legacy_vegetation_volume_key_is_accepted_as_reef_density(self) -> None:
+        config = AQUARIUM.normalise_config({"art": {"vegetationVolume": 75}})
+        self.assertEqual(config["art"]["reefDensity"], 75)
 
     def test_malformed_pointer_motion_setting_uses_safe_default(self) -> None:
         config = AQUARIUM.normalise_config({"integration": {"exitOnPointerMotion": "false"}})
@@ -125,27 +129,30 @@ class RendererTests(unittest.TestCase):
                 self.assertIn("·", scene.render().plain())
 
 
-    def test_vegetation_volume_scales_kelp_and_flora(self) -> None:
+    def test_reef_density_scales_coral_and_kelp(self) -> None:
         base = {
             "species": {key: 0 for key in AQUARIUM.SPRITES},
-            "art": {"showTelemetry": False, "vegetationVolume": 0},
+            "art": {"showTelemetry": False, "reefDensity": 0},
             "backdrop": {"source": "plain", "effectsEnabled": False},
         }
-        bare = AQUARIUM.OceanScene(80, 24, AQUARIUM.normalise_config(base), seed=7).render().plain()
+        bare = AQUARIUM.OceanScene(100, 28, AQUARIUM.normalise_config(base), seed=7).render().plain()
         self.assertNotIn("}", bare)
         self.assertNotIn("{", bare)
+        self.assertNotIn("\\ | /", bare)
 
-        base["art"]["vegetationVolume"] = 25
-        low = AQUARIUM.OceanScene(80, 24, AQUARIUM.normalise_config(base), seed=7).render().plain()
+        base["art"]["reefDensity"] = 25
+        low = AQUARIUM.OceanScene(100, 28, AQUARIUM.normalise_config(base), seed=7).render().plain()
         low_stalk_chars = low.count("}") + low.count("{")
+        low_coral_chars = low.count("\\") + low.count("/") + low.count("|")
 
-        base["art"]["vegetationVolume"] = 100
-        dense = AQUARIUM.OceanScene(80, 24, AQUARIUM.normalise_config(base), seed=7).render().plain()
+        base["art"]["reefDensity"] = 100
+        dense = AQUARIUM.OceanScene(100, 28, AQUARIUM.normalise_config(base), seed=7).render().plain()
         dense_stalk_chars = dense.count("}") + dense.count("{")
+        dense_coral_chars = dense.count("\\") + dense.count("/") + dense.count("|")
 
         self.assertGreater(low_stalk_chars, 0)
         self.assertGreater(dense_stalk_chars, low_stalk_chars * 2)
-
+        self.assertGreater(dense_coral_chars, low_coral_chars * 2)
 class RasterBackdropTests(unittest.TestCase):
     def test_source_validation_accepts_only_bounded_local_images(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

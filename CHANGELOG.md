@@ -2,6 +2,13 @@
 
 All notable changes are documented here. This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.0.8] - 2026-08-31
+
+### Added
+
+- **Reef density** control (`art.reefDensity`, 0–100%) that proportionately scales coral structures (height, branch tiers, staghorns, table corals, anemones) and kelp columns across the seabed.
+- Renamed control-room setting to **Reef Density** with full backward compatibility for previous configuration keys.
+
 ## [1.0.7] - 2026-08-31
 
 ### Added
@@ -77,6 +84,7 @@ All notable changes are documented here. This project follows [Semantic Versioni
 - Deterministic renderer snapshots, configuration normalization, and behavioral tests.
 - Marketplace manifest, preview artwork, actual screenshots, contributor guide, security policy, and CI validation.
 
+[1.0.8]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.8
 [1.0.7]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.7
 [1.0.6]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.6
 [1.0.5]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.5

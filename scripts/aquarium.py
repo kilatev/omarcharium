@@ -188,8 +188,12 @@ def normalise_config(raw: Any) -> dict[str, Any]:
             "bubbleDensity": int(clamp_number(art.get("bubbleDensity"), 0, 100, fallback_art.get("bubbleDensity", 55))),
             "current": round(clamp_number(art.get("current"), 0.35, 1.8, fallback_art.get("current", 1.0)), 2),
             "showTelemetry": bool(art.get("showTelemetry", fallback_art.get("showTelemetry", True))),
-            "vegetationVolume": int(clamp_number(
-                art.get("vegetationVolume"), 0, 100, fallback_art.get("vegetationVolume", 50),
+            "reefDensity": int(clamp_number(
+                (raw.get("art", {}) if isinstance(raw, dict) else {}).get(
+                    "reefDensity",
+                    (raw.get("art", {}) if isinstance(raw, dict) else {}).get("vegetationVolume", art.get("reefDensity", fallback_art.get("reefDensity", 50)))
+                ),
+                0, 100, fallback_art.get("reefDensity", 50),
             )),
         },
         "backdrop": {
@@ -468,7 +472,9 @@ class OceanScene:
     def _draw_habitat(self, canvas: FrameBuffer) -> None:
         palette = self.palette
         floor = self.height - 3
-        vegetation_volume = self.config["art"].get("vegetationVolume", 50)
+        reef_density = self.config["art"].get("reefDensity", self.config["art"].get("vegetationVolume", 50))
+        ratio = reef_density / 100.0
+
         for x in range(self.width):
             ridge = int(1.4 * math.sin(x * 0.09) + 0.7 * math.sin(x * 0.31))
             y = floor + ridge // 2
@@ -476,33 +482,58 @@ class OceanScene:
             if y + 1 < self.height:
                 canvas.put(x, y + 1, ".", palette["rock"])
 
-        # Kelp columns and marine flora scale in number and height with vegetation volume.
-        if vegetation_volume > 0:
+        if reef_density > 0:
+            # 1. Kelp columns scale in density and height with reef density
             max_stalks = max(1, self.width // 7)
-            stalk_count = max(1, int(round(max_stalks * (vegetation_volume / 100.0))))
-            height_scale = 0.45 + 0.85 * (vegetation_volume / 100.0)
+            stalk_count = max(1, int(round(max_stalks * ratio)))
+            height_scale = 0.45 + 0.85 * ratio
             for plant in range(stalk_count):
                 anchor = int((plant * (self.width * 0.6180339887) + 5) % (self.width - 8)) + 4
                 base_height = 4 + (plant * 7 + (plant % 3) * 5) % 8
-                height = max(2, min(self.height - 5, int(round(base_height * height_scale))))
-                for segment in range(height):
+                stalk_h = max(2, min(self.height - 5, int(round(base_height * height_scale))))
+                for segment in range(stalk_h):
                     y = floor - segment
                     sway = int(round(math.sin(self.elapsed * (0.65 + (plant % 5) * 0.08) + segment * 0.48 + plant * 1.3)))
-                    canvas.put(anchor + sway, y, "}" if sway >= 0 else "{", palette["kelp"])
-                canvas.put(anchor, floor + 1, "Y", palette["kelp"])
+                    if 0 <= anchor + sway < self.width:
+                        canvas.put(anchor + sway, y, "}" if sway >= 0 else "{", palette["kelp"])
+                if 0 <= anchor < self.width:
+                    canvas.put(anchor, floor + 1, "Y", palette["kelp"])
 
-        # Central branching coral appears once vegetation is present.
-        if vegetation_volume >= 15:
-            coral_x = self.width // 2 + int(math.sin(self.width) * self.width * 0.08)
-            coral_lines = ("   \\ | /", "  \\ \\|/ /", "---\\ | /---", "    \\|/", "     Y")
-            start_y = floor - len(coral_lines) + 2
-            for row, line in enumerate(coral_lines):
-                canvas.text(coral_x - 6, start_y + row, line, palette["coral"])
+            # 2. Central branching coral scales in tiers and height
+            coral_tiers = min(5, max(2, int(round(2 + 3 * ratio))))
+            full_coral_lines = (
+                "   \\ | /   ",
+                "  \\ \\|/ /  ",
+                "---\\ | /---",
+                "    \\|/    ",
+                "     Y     ",
+            )
+            active_coral = full_coral_lines[-coral_tiers:]
+            coral_x = self.width // 2 + int(math.sin(self.width) * self.width * 0.04)
+            start_y = floor - len(active_coral) + 2
+            for row, line in enumerate(active_coral):
+                canvas.text(coral_x - 5, start_y + row, line, palette["coral"])
 
-        # Secondary marine flora blooms at higher vegetation density.
-        if vegetation_volume >= 60:
-            for cx in (max(6, self.width // 6), min(self.width - 8, self.width * 5 // 6)):
-                canvas.text(cx, floor - 1, "\\|/", palette["coral"])
+            # 3. Secondary left staghorn / fan coral formations
+            if reef_density >= 35:
+                left_cx = max(8, self.width // 4)
+                left_lines = (" \\ | / ", "--\\|/--", "   Y   ") if reef_density >= 70 else (" \\|/ ", "  Y  ")
+                ly = floor - len(left_lines) + 1
+                for row, line in enumerate(left_lines):
+                    canvas.text(left_cx - len(line) // 2, ly + row, line, palette["coral"])
+
+            # 4. Secondary right table coral / sea plume formations
+            if reef_density >= 55:
+                right_cx = min(self.width - 10, self.width * 3 // 4)
+                right_lines = (" / | \\ ", "--/|\\--", "   Y   ") if reef_density >= 80 else (" /|\\ ", "  Y  ")
+                ry = floor - len(right_lines) + 1
+                for row, line in enumerate(right_lines):
+                    canvas.text(right_cx - len(line) // 2, ry + row, line, palette["coral"])
+
+            # 5. Additional multi-point sea anemones and micro-flora
+            if reef_density >= 75:
+                for fx in (max(14, self.width // 8), min(self.width - 16, self.width * 7 // 8)):
+                    canvas.text(fx, floor - 1, "\\|/", palette["coral"])
 
         for rock_x, glyph in ((2, "[__]"), (self.width // 3, "(_/\\_)"), (self.width - 9, "[___]")):
             canvas.text(rock_x, floor, glyph, palette["rock"])
