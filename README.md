@@ -112,7 +112,7 @@ omarchy-shell shell summon dailen.omarcharium '{}'
 
 ## Configure the habitat
 
-The control room writes settings atomically to:
+The control room writes settings atomically inside a mode-`0700` directory:
 
 ```text
 ~/.config/omarcharium/config.json
@@ -131,11 +131,11 @@ python3 scripts/aquarium.py --snapshot --width 120 --height 36 --seed 7
 python3 scripts/aquarium.py --check-config
 ```
 
-Malformed, missing, and out-of-range configuration values normalize to safe packaged defaults before rendering.
+Malformed, missing, oversized, and out-of-range configuration values normalize to safe packaged defaults before rendering. Renderer configuration input is capped at 256 KiB, and dimensions are capped at 500 × 200 cells.
 
 ## Procedural ambience
 
-Audio is disabled by default. When enabled, one aquarium process acquires a runtime lock and becomes the audio leader; other monitor instances stay silent. The generator combines filtered water movement with sparse, frequency-rising bubble envelopes and streams signed 16-bit stereo PCM directly to PipeWire.
+Audio is disabled by default. When enabled, one aquarium process acquires a private no-follow lock under `$XDG_RUNTIME_DIR/omarcharium/` and becomes the audio leader; other monitor instances stay silent. If no absolute runtime directory is available, the lock falls back to the private Omarcharium cache. The generator combines filtered water movement with sparse, frequency-rising bubble envelopes and streams signed 16-bit stereo PCM directly to PipeWire.
 
 Test the full path without a TTY or screensaver window:
 
@@ -151,9 +151,9 @@ The diagnostic plays three clearly audible rising tones before transitioning int
 
 To prevent the stock TTE saver and Omarcharium from opening together, Omarcharium temporarily uses Omarchy's existing `screensaver-off` toggle:
 
-- an absent toggle is created with a separate ownership marker;
-- a pre-existing user toggle is never claimed or removed;
-- disabling idle integration, disabling the plugin, or removing it releases only state owned by Omarcharium;
+- an absent toggle and private ownership record receive the same unique marker;
+- a pre-existing, replaced, mismatched, or symlinked toggle is never claimed or removed;
+- disabling idle integration, disabling the plugin, or removing it releases only state whose two ownership markers still match;
 - no Hyprland or `/usr/share/omarchy/` file is modified.
 
 Implementation details and trust boundaries are documented in [Architecture](docs/ARCHITECTURE.md) and [Security Policy](SECURITY.md).
@@ -212,15 +212,15 @@ rm -rf ~/.config/omarcharium ~/.local/state/omarcharium
 git clone https://github.com/DailenG/omarcharium.git
 cd omarcharium
 python3 -m unittest discover -s tests -v
-bash -n scripts/launch-aquarium scripts/idle-integration
+bash -n scripts/launch-aquarium scripts/idle-integration scripts/select-backdrop
 omarchy plugin validate .
 ```
 
-Live development setup, invariants, and pull-request expectations are in [CONTRIBUTING.md](CONTRIBUTING.md). The CI workflow verifies Python 3.11 and 3.14 behavior, deterministic rendering, shell syntax, manifest entry points, required publication assets, and Marketplace-safe layout.
+Live development setup, invariants, and pull-request expectations are in [CONTRIBUTING.md](CONTRIBUTING.md). The CI workflow verifies Python 3.11 and 3.14 behavior, deterministic rendering, all shell scripts, manifest entry points, required publication assets, and Marketplace-safe layout.
 
 ## Marketplace readiness
 
-Omarcharium follows the Omarchy schema v1 plugin contract with one namespaced identity, `dailen.omarcharium`, shared by its service and overlay. The repository contains no symlinks, path escapes, installer, package-manager action, privilege escalation, or remote runtime asset.
+Omarcharium follows the Omarchy schema v1 plugin contract with one namespaced identity, `dailen.omarcharium`, shared by its service and overlay. The repository contains no symlinks, path escapes, installer, package-manager action, privilege escalation, or remote runtime asset. Release 1.0.9 received a full repository and history security review; findings, fixes, trust boundaries, resource ceilings, and residual risk are recorded in [Security Policy](SECURITY.md).
 
 ## License
 

@@ -20,12 +20,14 @@ import random
 import select
 import shutil
 import signal
+import stat
 import struct
 import subprocess
 import sys
 import termios
 import threading
 import time
+import tempfile
 import tty
 from dataclasses import dataclass
 from pathlib import Path
@@ -35,6 +37,9 @@ PLUGIN_DIR = Path(__file__).resolve().parent.parent
 DEFAULTS_PATH = PLUGIN_DIR / "defaults.json"
 SPECIES_PATH = PLUGIN_DIR / "species.json"
 CONFIG_PATH = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "omarcharium" / "config.json"
+MAX_CONFIG_BYTES = 256 * 1024
+MAX_TERMINAL_COLUMNS = 500
+MAX_TERMINAL_LINES = 200
 
 RGB = tuple[int, int, int]
 
@@ -120,16 +125,6 @@ def mirror_sprite(lines: Iterable[str]) -> tuple[str, ...]:
     return tuple(line.translate(MIRROR_TABLE)[::-1] for line in lines)
 
 
-def deep_merge(base: dict[str, Any], overlay: Any) -> dict[str, Any]:
-    result = copy.deepcopy(base)
-    if not isinstance(overlay, dict):
-        return result
-    for key, value in overlay.items():
-        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-            result[key] = deep_merge(result[key], value)
-        else:
-            result[key] = copy.deepcopy(value)
-    return result
 
 
 def clamp_number(value: Any, low: float, high: float, fallback: float) -> float:
@@ -146,26 +141,36 @@ def clamp_number(value: Any, low: float, high: float, fallback: float) -> float:
 
 def read_json(path: Path, fallback: Any) -> Any:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+        with path.open("rb") as stream:
+            payload = stream.read(MAX_CONFIG_BYTES + 1)
+        if len(payload) > MAX_CONFIG_BYTES:
+            return copy.deepcopy(fallback)
+        return json.loads(payload.decode("utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, RecursionError):
         return copy.deepcopy(fallback)
 
 
 def normalise_config(raw: Any) -> dict[str, Any]:
     defaults = read_json(DEFAULTS_PATH, {})
-    merged = deep_merge(defaults, raw)
+    incoming = raw if isinstance(raw, dict) else {}
     default_species = defaults.get("species", {})
-    incoming_species = merged.get("species", {})
+    incoming_species = incoming.get("species", {})
+    if not isinstance(incoming_species, dict):
+        incoming_species = {}
     species: dict[str, int] = {}
     for key, fallback in default_species.items():
         species[key] = int(clamp_number(incoming_species.get(key), 0, 20, fallback))
 
-    art = merged.get("art", {})
+    art = incoming.get("art", {})
+    if not isinstance(art, dict):
+        art = {}
     fallback_art = defaults.get("art", {})
     palette = str(art.get("palette", fallback_art.get("palette", "lagoon")))
     if palette not in PALETTES:
         palette = "lagoon"
-    backdrop = merged.get("backdrop", {})
+    backdrop = incoming.get("backdrop", {})
+    if not isinstance(backdrop, dict):
+        backdrop = {}
     fallback_backdrop = defaults.get("backdrop", {})
     backdrop_source = str(backdrop.get("source", fallback_backdrop.get("source", "plain")))
     if backdrop_source not in {"plain", "pelagic", "image"}:
@@ -176,9 +181,13 @@ def normalise_config(raw: Any) -> dict[str, Any]:
     if fit_mode not in {"cover", "contain", "center"}:
         fit_mode = "cover"
 
-    sound = merged.get("sound", {})
+    sound = incoming.get("sound", {})
+    if not isinstance(sound, dict):
+        sound = {}
     fallback_sound = defaults.get("sound", {})
-    integration = merged.get("integration", {})
+    integration = incoming.get("integration", {})
+    if not isinstance(integration, dict):
+        integration = {}
     fallback_integration = defaults.get("integration", {})
     return {
         "schemaVersion": 1,
@@ -189,9 +198,9 @@ def normalise_config(raw: Any) -> dict[str, Any]:
             "current": round(clamp_number(art.get("current"), 0.35, 1.8, fallback_art.get("current", 1.0)), 2),
             "showTelemetry": bool(art.get("showTelemetry", fallback_art.get("showTelemetry", True))),
             "reefDensity": int(clamp_number(
-                (raw.get("art", {}) if isinstance(raw, dict) else {}).get(
+                (incoming.get("art", {}) if isinstance(incoming.get("art"), dict) else {}).get(
                     "reefDensity",
-                    (raw.get("art", {}) if isinstance(raw, dict) else {}).get("vegetationVolume", art.get("reefDensity", fallback_art.get("reefDensity", 50)))
+                    (incoming.get("art", {}) if isinstance(incoming.get("art"), dict) else {}).get("vegetationVolume", art.get("reefDensity", fallback_art.get("reefDensity", 50)))
                 ),
                 0, 100, fallback_art.get("reefDensity", 50),
             )),
@@ -226,6 +235,48 @@ def normalise_config(raw: Any) -> dict[str, Any]:
 
 def load_config(path: Path) -> dict[str, Any]:
     return normalise_config(read_json(path, {}))
+
+def clamp_dimensions(width: int, height: int) -> tuple[int, int]:
+    return (
+        max(40, min(MAX_TERMINAL_COLUMNS, width)),
+        max(16, min(MAX_TERMINAL_LINES, height)),
+    )
+
+
+def ensure_private_directory(path: Path) -> None:
+    path.mkdir(mode=0o700, parents=True, exist_ok=True)
+    metadata = path.lstat()
+    if not stat.S_ISDIR(metadata.st_mode) or metadata.st_uid != os.getuid():
+        raise OSError(f"unsafe directory: {path}")
+    path.chmod(0o700)
+
+
+def open_lock_file(path: Path) -> Any:
+    flags = os.O_CREAT | os.O_RDWR | os.O_CLOEXEC | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(path, flags, 0o600)
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.getuid():
+            raise OSError(f"unsafe lock file: {path}")
+        os.fchmod(descriptor, 0o600)
+        return os.fdopen(descriptor, "a+b")
+    except Exception:
+        os.close(descriptor)
+        raise
+
+
+def user_cache_home() -> Path:
+    configured = os.environ.get("XDG_CACHE_HOME", "")
+    if configured and Path(configured).is_absolute():
+        return Path(configured)
+    return Path.home() / ".cache"
+
+
+def runtime_directory() -> Path:
+    configured = os.environ.get("XDG_RUNTIME_DIR", "")
+    if configured and Path(configured).is_absolute():
+        return Path(configured) / "omarcharium"
+    return user_cache_home() / "omarcharium" / "runtime"
 
 
 @dataclass(slots=True)
@@ -302,8 +353,7 @@ class FrameBuffer:
 
 class OceanScene:
     def __init__(self, width: int, height: int, config: dict[str, Any], seed: int) -> None:
-        self.width = max(40, width)
-        self.height = max(16, height)
+        self.width, self.height = clamp_dimensions(width, height)
         self.config = config
         self.rng = random.Random(seed)
         self.elapsed = 0.0
@@ -372,10 +422,11 @@ class OceanScene:
         )
 
     def resize(self, width: int, height: int) -> None:
+        width, height = clamp_dimensions(width, height)
         if width == self.width and height == self.height:
             return
-        self.width = max(40, width)
-        self.height = max(16, height)
+        self.width = width
+        self.height = height
         for fish in self.fish:
             fish.x %= self.width + 20
             fish.base_y = max(4, min(self.height - 8, fish.base_y))
@@ -633,8 +684,8 @@ class AmbientAudio:
             self.last_error = "pw-cat is unavailable; install PipeWire tools"
             return False
         try:
-            self.runtime_dir.mkdir(parents=True, exist_ok=True)
-            self.lock_file = (self.runtime_dir / "omarcharium-audio.lock").open("w")
+            ensure_private_directory(self.runtime_dir)
+            self.lock_file = open_lock_file(self.runtime_dir / "audio.lock")
             fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             if self.lock_file:
@@ -746,9 +797,14 @@ class AmbientAudio:
 class RasterBackdrop:
     """Prepare and place one validated local image through the Kitty protocol."""
 
-    SUPPORTED_SUFFIXES = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
+    IMAGE_CODERS = {
+        ".jpg": "jpeg", ".jpeg": "jpeg", ".png": "png",
+        ".gif": "gif", ".bmp": "bmp", ".webp": "webp",
+    }
     MAX_FILE_BYTES = 32 * 1024 * 1024
     MAX_PIXELS = 24_000_000
+    MAX_CACHE_FILES = 16
+    MAX_CACHE_BYTES = 128 * 1024 * 1024
     IMAGE_ID = 7321
 
     def __init__(self, config: dict[str, Any]) -> None:
@@ -776,7 +832,7 @@ class RasterBackdrop:
         except OSError:
             self.error = "custom image is missing or unreadable · using plain depth"
             return None
-        if not path.is_file() or path.suffix.lower() not in self.SUPPORTED_SUFFIXES:
+        if not path.is_file() or path.suffix.lower() not in self.IMAGE_CODERS:
             self.error = "custom image type is unsupported · using plain depth"
             return None
         if metadata.st_size > self.MAX_FILE_BYTES:
@@ -784,21 +840,38 @@ class RasterBackdrop:
             return None
         return path
 
+    @classmethod
+    def image_spec(cls, source: Path) -> str:
+        return f"{cls.IMAGE_CODERS[source.suffix.lower()]}:{source}[0]"
+
     @staticmethod
-    def _magick_prefix() -> list[str]:
+    def _magick_prefix(executable: str) -> list[str]:
         return [
-            "magick",
+            executable,
             "-limit", "memory", "128MiB",
             "-limit", "map", "256MiB",
-            "-limit", "disk", "512MiB",
+            "-limit", "disk", "256MiB",
         ]
 
+    @staticmethod
+    def _owned_regular_file(path: Path) -> bool:
+        try:
+            metadata = path.lstat()
+        except OSError:
+            return False
+        return stat.S_ISREG(metadata.st_mode) and metadata.st_uid == os.getuid()
+
     @classmethod
-    def identify_dimensions(cls, source: Path) -> tuple[int, int] | None:
+    def identify_dimensions(
+        cls, source: Path, executable: str, environment: dict[str, str],
+    ) -> tuple[int, int] | None:
         try:
             identified = subprocess.run(
-                ["magick", "identify", *cls._magick_prefix()[1:], "-ping", "-format", "%w %h", f"{source}[0]"],
-                check=False, capture_output=True, text=True, timeout=10,
+                [
+                    executable, "identify", *cls._magick_prefix(executable)[1:],
+                    "-ping", "-format", "%w %h", cls.image_spec(source),
+                ],
+                check=False, capture_output=True, text=True, timeout=10, env=environment,
             )
             width_text, height_text = identified.stdout.strip().split()
             width, height = int(width_text), int(height_text)
@@ -808,15 +881,45 @@ class RasterBackdrop:
             return None
         return width, height
 
+    @classmethod
+    def prune_cache(cls, cache_root: Path, current: Path) -> None:
+        candidates = [
+            path for path in cache_root.glob("backdrop-*.png")
+            if path != current and cls._owned_regular_file(path)
+        ]
+        candidates.sort(key=lambda path: path.stat().st_mtime_ns, reverse=True)
+        kept_files = 1
+        kept_bytes = current.stat().st_size
+        for path in candidates:
+            size = path.stat().st_size
+            keep = (
+                kept_files < cls.MAX_CACHE_FILES
+                and kept_bytes + size <= cls.MAX_CACHE_BYTES
+            )
+            if keep:
+                kept_files += 1
+                kept_bytes += size
+            else:
+                path.unlink(missing_ok=True)
+
     def prepare(self) -> bool:
         source = self._source_path()
         if source is None:
             return False
-        if shutil.which("magick") is None:
+        executable = shutil.which("magick")
+        if executable is None:
             self.error = "ImageMagick is unavailable · using plain depth"
             return False
 
-        dimensions = self.identify_dimensions(source)
+        cache_root = user_cache_home() / "omarcharium"
+        try:
+            ensure_private_directory(cache_root)
+        except OSError:
+            self.error = "custom image cache is unsafe · using plain depth"
+            return False
+        environment = os.environ.copy()
+        environment["MAGICK_TEMPORARY_PATH"] = str(cache_root)
+        dimensions = self.identify_dimensions(source, executable, environment)
         if dimensions is None:
             self.error = "custom image could not be decoded or exceeds 24 megapixels · using plain depth"
             return False
@@ -827,16 +930,22 @@ class RasterBackdrop:
             self.settings["fitMode"], str(self.settings["dimming"]),
         ))
         cache_key = hashlib.sha256(signature.encode("utf-8", "surrogateescape")).hexdigest()
-        cache_root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "omarcharium"
-        cache_root.mkdir(mode=0o700, parents=True, exist_ok=True)
         output = cache_root / f"backdrop-{cache_key}.png"
-        lock_path = cache_root / f"backdrop-{cache_key}.lock"
+        lock_path = cache_root / "backdrop-cache.lock"
+        temporary: Path | None = None
 
         try:
-            with lock_path.open("a+b") as lock_file:
+            with open_lock_file(lock_path) as lock_file:
                 fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
-                if not output.is_file():
-                    temporary = cache_root / f".{cache_key}.{os.getpid()}.tmp"
+                output_exists = output.exists() or output.is_symlink()
+                if output_exists and not self._owned_regular_file(output):
+                    self.error = "custom image cache entry is unsafe · using plain depth"
+                    return False
+                if not output_exists:
+                    with tempfile.NamedTemporaryFile(
+                        dir=cache_root, prefix=f".{cache_key}.", suffix=".tmp", delete=False,
+                    ) as temporary_file:
+                        temporary = Path(temporary_file.name)
                     fit_mode = self.settings["fitMode"]
                     if fit_mode == "cover":
                         fit_args = ["-resize", "1920x1080^", "-gravity", "center", "-extent", "1920x1080"]
@@ -847,21 +956,27 @@ class RasterBackdrop:
                     brightness = (100 - self.settings["dimming"]) / 100
                     converted = subprocess.run(
                         [
-                            *self._magick_prefix(), f"{source}[0]", "-auto-orient",
+                            *self._magick_prefix(executable), self.image_spec(source), "-auto-orient",
                             "-background", "black", *fit_args,
                             "-alpha", "remove", "-evaluate", "multiply", f"{brightness:.2f}",
                             "-strip", f"png:{temporary}",
                         ],
-                        check=False, capture_output=True, timeout=30,
+                        check=False, capture_output=True, timeout=30, env=environment,
                     )
-                    if converted.returncode != 0 or not temporary.is_file():
-                        temporary.unlink(missing_ok=True)
+                    if converted.returncode != 0 or not self._owned_regular_file(temporary):
                         self.error = "custom image conversion failed · using plain depth"
                         return False
+                    temporary.chmod(0o600)
                     os.replace(temporary, output)
+                    temporary = None
+                output.chmod(0o600)
+                self.prune_cache(cache_root, output)
         except (OSError, subprocess.TimeoutExpired):
             self.error = "custom image cache failed · using plain depth"
             return False
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
 
         self.cached_path = output
         self.error = ""
@@ -981,7 +1096,7 @@ class TerminalSession:
 
 def terminal_size() -> tuple[int, int]:
     size = shutil.get_terminal_size(fallback=(120, 36))
-    return max(40, size.columns), max(16, size.lines)
+    return clamp_dimensions(size.columns, size.lines)
 
 
 def dismiss_screensaver_windows() -> None:
@@ -998,7 +1113,7 @@ def run_interactive(config: dict[str, Any], seed: int, sound_override: bool | No
     width, height = terminal_size()
     scene = OceanScene(width, height, config, seed)
     palette = scene.palette
-    runtime_dir = Path(os.environ.get("XDG_RUNTIME_DIR", f"/tmp/omarcharium-{os.getuid()}"))
+    runtime_dir = runtime_directory()
     sound_enabled = config["sound"]["enabled"] if sound_override is None else sound_override
     audio = AmbientAudio(config["sound"]["volume"], runtime_dir)
     dismissal_input = DismissalInput(config["integration"]["exitOnPointerMotion"])
@@ -1070,7 +1185,7 @@ def run_interactive(config: dict[str, Any], seed: int, sound_override: bool | No
 
 def run_audio_test(config: dict[str, Any], seconds: float) -> int:
     """Exercise PipeWire without requiring an interactive terminal."""
-    runtime_dir = Path(os.environ.get("XDG_RUNTIME_DIR", f"/tmp/omarcharium-{os.getuid()}"))
+    runtime_dir = runtime_directory()
     duration = max(1.0, min(60.0, seconds))
     volume = max(55, int(config["sound"]["volume"]))
     audio = AmbientAudio(volume, runtime_dir, diagnostic=True)

@@ -42,7 +42,8 @@ The JSON key remains `showTelemetry` for configuration compatibility. It only to
 
 The background source and effects are independent. Pelagic effects can run over Plain Depth, Pelagic Field, or a custom image.
 
-**Custom Image** uses Omarchy's fullscreen image picker. The renderer accepts local files only, limits inputs to 32 MiB and 24 megapixels, preprocesses once through ImageMagick, and caches the dimmed fit under `~/.cache/omarcharium/`. Ghostty and Kitty receive the cached PNG through the Kitty graphics protocol at negative z-order. Alacritty and Foot display a clear plain-depth fallback while preserving habitat, fish, the status display, and optional effects.
+**Custom Image** uses Omarchy's fullscreen image picker. The renderer accepts local files only, limits inputs to 32 MiB and 24 megapixels, and forces ImageMagick to the decoder allowlisted for the selected suffix. Preprocessing runs with bounded memory, map, disk, and wall-clock resources in a private temporary directory. Derived mode-`0600` PNGs are cached under `~/.cache/omarcharium/`, with pruning at 16 files or 128 MiB. Ghostty and Kitty receive the cached PNG through the Kitty graphics protocol at negative z-order. Alacritty and Foot display a clear plain-depth fallback while preserving habitat, fish, the status display, and optional effects.
+
 ## Ambience
 
 Audio is off by default. When enabled, `volume` controls the generated stream from 0–100%. Only one monitor instance emits audio.
@@ -106,7 +107,7 @@ Disable automatic immersion to keep tray and manual launching while restoring th
 }
 ```
 
-Unknown keys are ignored. Missing and malformed values fall back to packaged defaults; numeric values are clamped to supported ranges.
+Unknown keys are ignored. Missing and malformed values fall back to packaged defaults; numeric values are clamped to supported ranges. Renderer configuration input is capped at 256 KiB, and requested render dimensions are clamped to 40–500 columns and 16–200 rows.
 
 ## Command-line diagnostics
 

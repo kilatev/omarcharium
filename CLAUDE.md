@@ -37,7 +37,7 @@ Repository-specific guidance for future development sessions. Keep machine- and 
 
 ## Audio
 
-- One renderer wins `$XDG_RUNTIME_DIR/omarcharium-audio.lock` and streams raw signed 16-bit stereo PCM at 24 kHz to `pw-cat`.
+- One renderer wins the private no-follow `$XDG_RUNTIME_DIR/omarcharium/audio.lock` and streams raw signed 16-bit stereo PCM at 24 kHz to `pw-cat`; the private cache is the fallback when no absolute runtime directory exists.
 - `--audio-test` intentionally raises diagnostic volume to at least 55%; interactive ambience uses the configured volume. A successful diagnostic does not prove that a low interactive volume is audible.
 - Interactive mode requires a real TTY.
 

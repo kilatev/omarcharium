@@ -10,10 +10,21 @@ trap 'rm -f "$selection_file" "$done_file"' EXIT
 image_dirs=$(printf '%s\n%s\n%s' "$HOME/Pictures" "$HOME/Downloads" "$HOME")
 omarchy-shell image-selector open "$image_dirs" "" "$selected" "$selection_file" "$done_file" true true >/dev/null
 
+deadline=$((SECONDS + 300))
 while [[ ! -e $done_file ]]; do
+  if ((SECONDS >= deadline)); then
+    printf 'omarcharium: image selection timed out\n' >&2
+    exit 1
+  fi
   sleep 0.1
 done
 
 if [[ -s $selection_file ]]; then
-  cat "$selection_file"
+  selected_path=
+  IFS= read -r selected_path <"$selection_file" || true
+  if [[ $selected_path != /* || ${#selected_path} -gt 4096 || ! -f $selected_path ]]; then
+    printf 'omarcharium: image selector returned an invalid local file\n' >&2
+    exit 1
+  fi
+  printf '%s\n' "$selected_path"
 fi

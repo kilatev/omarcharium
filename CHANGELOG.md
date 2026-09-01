@@ -2,6 +2,21 @@
 
 All notable changes are documented here. This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.0.9] - 2026-08-31
+
+### Security
+
+- Hardened audio and backdrop lock files against symlink traversal with no-follow opens, ownership checks, and private permissions.
+- Replaced path-only idle-toggle ownership with matching per-instance markers so a user-replaced toggle is never removed.
+- Bounded configuration reads to 256 KiB, terminal allocation to 500 × 200 cells, and derived-image caching to 16 files and 128 MiB.
+- Forced ImageMagick to allowlisted decoders and isolated its bounded temporary storage.
+- Pinned GitHub Actions to verified full commit SHAs and added a restrictive Content Security Policy to the project site.
+
+### Changed
+
+- Configuration, cache, runtime, and integration-state directories now enforce private user-only permissions.
+- Image selection rejects invalid, non-local, multiline, and stalled picker results.
+
 ## [1.0.8] - 2026-08-31
 
 ### Added
@@ -84,6 +99,7 @@ All notable changes are documented here. This project follows [Semantic Versioni
 - Deterministic renderer snapshots, configuration normalization, and behavioral tests.
 - Marketplace manifest, preview artwork, actual screenshots, contributor guide, security policy, and CI validation.
 
+[1.0.9]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.9
 [1.0.8]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.8
 [1.0.7]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.7
 [1.0.6]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.6

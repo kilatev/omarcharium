@@ -23,16 +23,34 @@ You should receive an acknowledgment within seven days. Coordinated disclosure i
 Omarcharium is an unsandboxed Omarchy shell plugin and runs with the current user's permissions. Its intended boundaries are deliberately narrow:
 
 - no `sudo`, `pkexec`, package-manager, or installer execution;
-- no network access or remote assets;
-- no secrets, credentials, usage analytics, or data collection;
+- no runtime network access, remote assets, analytics, or data collection;
+- no secrets or credentials read, stored, or transmitted;
 - no writes to `/usr/share/omarchy/`;
-- configuration only under `~/.config/omarcharium/`;
-- selected backdrop images are local read-only inputs, limited to 32 MiB and 24 megapixels;
-- derived, dimmed backdrop PNGs only under `~/.cache/omarcharium/`;
-- owned integration state only under `~/.local/state/omarcharium/`;
-- a temporary audio lock only under `$XDG_RUNTIME_DIR`;
+- configuration only under a mode `0700` `~/.config/omarcharium/`, with renderer input capped at 256 KiB;
+- selected backdrop images are local read-only inputs, limited to 32 MiB, 24 megapixels, and an explicit JPEG, PNG, GIF, BMP, or WebP decoder;
+- derived backdrop PNGs are mode `0600`, limited to 16 files and 128 MiB under a mode `0700` `~/.cache/omarcharium/`;
+- owned integration state only under a mode `0700` `~/.local/state/omarcharium/`;
+- no-follow mode `0600` lock files under `$XDG_RUNTIME_DIR/omarcharium/`, with a private cache fallback when the runtime directory is unavailable;
 - external processes limited to documented Omarchy, Hyprland, terminal, PipeWire, ImageMagick, and POSIX tools.
 
-The idle helper preserves a pre-existing user-owned `screensaver-off` toggle and removes only a toggle for which it recorded ownership.
+The idle helper writes the same unique ownership marker to the stock `screensaver-off` toggle and its private ownership record. Disable removes the toggle only while both regular files still match. Pre-existing, replaced, mismatched, or symlinked state is preserved or rejected.
 
-Backdrop paths are passed as direct process arguments, never interpolated into shell command strings. Remote URLs and unsupported file types are rejected. ImageMagick runs with explicit memory, map, disk, dimension, and wall-clock bounds.
+Backdrop paths are passed as direct process arguments, never interpolated into shell command strings. Remote URLs and unsupported file types are rejected. ImageMagick is forced to the decoder selected by the validated suffix and runs with explicit memory, map, disk, dimension, and wall-clock bounds. Temporary and cached files use exclusive creation, ownership checks, no-follow locks, and private permissions.
+
+The shell IPC endpoint is intentionally available to processes in the same user session. It starts, stops, or configures the screensaver and is not an authentication boundary. The fixed **Report Bug** link is the only runtime action that opens a network-capable application, and it occurs only after explicit user interaction.
+
+## Security review record
+
+Release 1.0.9 received a full repository security review on 2026-08-31 before Marketplace submission. The review covered every QML, Python, shell, workflow, manifest, static-site, configuration, test, and documentation file; all 12 pre-review commits were scanned for common credential formats.
+
+Addressed findings:
+
+| Severity | Area | Resolution |
+|---|---|---|
+| Moderate | Runtime and integration-state files could follow pre-positioned symlinks; path-only ownership could remove a replacement toggle | Added no-follow owned lock opens, private directories, matched ownership markers, replacement preservation, and regression tests |
+| Moderate | Configuration, terminal dimensions, and the derived-image cache lacked complete storage or allocation ceilings | Added a 256 KiB configuration limit, 500 × 200 cell ceiling, and 16-file/128 MiB cache pruning |
+| Low | Image decoding relied on ImageMagick's automatic format selection after suffix validation | Forced an allowlisted decoder and private temporary directory for every identify and conversion operation |
+| Low | GitHub Actions used mutable major-version references | Pinned each action to a verified full commit SHA while retaining read-only workflow permissions |
+| Low | The project site used inline JavaScript without a restrictive policy | Moved script logic to a same-origin file and added a deny-by-default Content Security Policy and no-referrer policy |
+
+No embedded secret, runtime network request, privilege-escalation path, package installation hook, shell interpolation of user configuration, or unresolved known vulnerability was found. Residual risk is limited by the stated trust model: the plugin is not sandboxed, supported local images are decoded by the system ImageMagick installation, and same-user processes can invoke the documented shell IPC actions.

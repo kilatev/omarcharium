@@ -47,7 +47,7 @@ The Python renderer independently normalizes the same public configuration contr
 
 Backdrop effects are independent from the source so the same bounded terminal-native treatment can compose over built-in and user-selected sources. Each frame then advances positions from monotonic time, wraps entities at scene boundaries, paints into a cell buffer, emits ANSI truecolor only when the active foreground color changes, and erases the unpainted remainder of every row.
 
-For **Custom Image**, `RasterBackdrop` validates a local bounded image and preprocesses it once through ImageMagick. The cache key includes the canonical path, size, modification time, fit, and dimming. Ghostty and Kitty receive the resulting PNG through a negative-z Kitty graphics placement; resize sends a new placement without decoding again. Alacritty and Foot retain the terminal-native layers and show a plain-depth fallback notice.
+For **Custom Image**, `RasterBackdrop` canonicalizes and size-checks a local allowlisted image, forces ImageMagick to the matching JPEG, PNG, GIF, BMP, or WebP decoder, and preprocesses it once with memory, map, disk, pixel, and timeout bounds. A global no-follow cache lock serializes conversion. The cache key includes the canonical path, size, modification time, fit, and dimming; mode-`0600` outputs are pruned to 16 files and 128 MiB. Ghostty and Kitty receive the resulting PNG through a negative-z Kitty graphics placement; resize sends a new placement without decoding again. Alacritty and Foot retain the terminal-native layers and show a plain-depth fallback notice.
 
 Sprites contain only single-cell glyphs. A mirror translation reverses direction without maintaining duplicate left-facing art. `--seed` makes snapshots deterministic for tests and visual debugging.
 The terminal enters an alternate screen, hides the cursor, and enables SGR any-motion mouse reporting. A bounded input decoder distinguishes pointer motion from clicks and keyboard bytes, including fragmented reports. Cleanup restores every terminal mode on normal exit or signal. Accepted dismissal input closes all monitor instances through the standard Omarchy screensaver class.
@@ -68,18 +68,18 @@ To suppress only the stock visualizer, `scripts/idle-integration` creates the ex
 
 ## Audio
 
-Every renderer may request ambience, but `AmbientAudio` takes a non-blocking `flock`. Only one monitor becomes the audio leader. It streams generated signed 16-bit stereo PCM at 24 kHz to `pw-cat --raw`; no sample assets or codecs are involved.
+Every renderer may request ambience, but `AmbientAudio` takes a non-blocking no-follow `flock` on a mode-`0600` regular file. Only one monitor becomes the audio leader. The lock lives in a mode-`0700` `$XDG_RUNTIME_DIR/omarcharium/` directory, or a private cache fallback if no absolute runtime directory is available. Audio streams generated signed 16-bit stereo PCM at 24 kHz to `pw-cat --raw`; no sample assets or codecs are involved.
 
 The synthesis combines slowly filtered noise, water motion, and sparse frequency-rising bubble envelopes. `--audio-test` adds three diagnostic tones and verifies that `pw-cat` remains alive before reporting success.
 
 | Resource | Access |
 |---|---|
 | Plugin source | Read-only at runtime |
-| `~/.config/omarcharium/config.json` | User configuration read/write |
-| Selected backdrop image | Local read-only input |
-| `~/.cache/omarcharium/` | Bounded derived backdrop PNGs and locks |
-| `~/.local/state/omarcharium/` | Toggle ownership marker |
-| `$XDG_RUNTIME_DIR/omarcharium-audio.lock` | Ephemeral audio leadership lock |
+| `~/.config/omarcharium/config.json` | Atomic user configuration read/write; directory mode `0700`; renderer input capped at 256 KiB |
+| Selected backdrop image | Local read-only allowlisted input; 32 MiB and 24 megapixel limits |
+| `~/.cache/omarcharium/` | Private derived backdrop PNGs, global no-follow cache lock, 16-file/128 MiB ceiling |
+| `~/.local/state/omarcharium/` | Private matched toggle ownership marker |
+| `$XDG_RUNTIME_DIR/omarcharium/audio.lock` | Private no-follow ephemeral audio leadership lock |
 | `/usr/share/omarchy/` | Read-only terminal defaults; never modified |
-| Network | Never accessed |
+| Network | No runtime requests; a fixed bug-report URL opens only after user action |
 | Privilege escalation | Never used |

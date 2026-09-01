@@ -124,6 +124,15 @@ Item {
     if (!ensureDir.running) ensureDir.running = true
   }
 
+  function finishDirectorySetup(exitCode) {
+    directoryReady = exitCode === 0
+    if (directoryReady && pendingSaveText) {
+      configFile.setText(pendingSaveText)
+      pendingSaveText = ""
+      statusLine = "CONFIGURATION SYNCHRONIZED"
+    }
+  }
+
   function persist() {
     pendingSaveText = JSON.stringify(normalise(config), null, 2) + "\n"
     statusLine = "WRITING HABITAT PARAMETERS..."
@@ -232,13 +241,15 @@ Item {
     id: ensureDir
     command: ["mkdir", "-p", root.configDir]
     onExited: function(exitCode) {
-      root.directoryReady = exitCode === 0
-      if (root.directoryReady && root.pendingSaveText) {
-        configFile.setText(root.pendingSaveText)
-        root.pendingSaveText = ""
-        root.statusLine = "CONFIGURATION SYNCHRONIZED"
-      }
+      if (exitCode === 0) secureDir.running = true
+      else root.finishDirectorySetup(exitCode)
     }
+  }
+
+  Process {
+    id: secureDir
+    command: ["chmod", "700", root.configDir]
+    onExited: function(exitCode) { root.finishDirectorySetup(exitCode) }
   }
 
   Process {

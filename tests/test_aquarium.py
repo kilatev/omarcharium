@@ -74,6 +74,26 @@ class ConfigurationTests(unittest.TestCase):
         self.assertEqual(config["backdrop"]["fitMode"], "cover")
         self.assertEqual(config["backdrop"]["dimming"], 0)
 
+    def test_malformed_sections_use_packaged_defaults(self) -> None:
+        config = AQUARIUM.normalise_config({
+            "species": "many",
+            "art": [],
+            "backdrop": 42,
+            "sound": None,
+            "integration": "enabled",
+        })
+        defaults = json.loads((ROOT / "defaults.json").read_text(encoding="utf-8"))
+        self.assertEqual(config, defaults)
+
+    def test_oversized_configuration_is_rejected_before_parsing(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "oversized.json"
+            path.write_bytes(b" " * (AQUARIUM.MAX_CONFIG_BYTES + 1))
+            config = AQUARIUM.load_config(path)
+
+        defaults = json.loads((ROOT / "defaults.json").read_text(encoding="utf-8"))
+        self.assertEqual(config, defaults)
+
 
 
 class RendererTests(unittest.TestCase):
@@ -98,6 +118,13 @@ class RendererTests(unittest.TestCase):
         self.assertEqual(len(snapshot), 24)
         self.assertTrue(all(len(line) <= 80 for line in snapshot))
         self.assertIn("Y", "\n".join(snapshot))
+
+    def test_scene_dimensions_are_bounded(self) -> None:
+        self.assertEqual(
+            AQUARIUM.clamp_dimensions(10**9, 10**9),
+            (AQUARIUM.MAX_TERMINAL_COLUMNS, AQUARIUM.MAX_TERMINAL_LINES),
+        )
+        self.assertEqual(AQUARIUM.clamp_dimensions(-1, -1), (40, 16))
 
     def test_pelagic_backdrop_and_effect_overlay_are_independent_and_deterministic(self) -> None:
         base = {
@@ -191,6 +218,51 @@ class RasterBackdropTests(unittest.TestCase):
         self.assertIn("z=-1", sequence)
         self.assertIn("c=120,r=36", sequence)
 
+    def test_image_decoder_is_forced_from_the_allowed_suffix(self) -> None:
+        self.assertEqual(
+            AQUARIUM.RasterBackdrop.image_spec(Path("/tmp/reef image.png")),
+            "png:/tmp/reef image.png[0]",
+        )
+
+    def test_cache_pruning_keeps_current_and_enforces_file_limit(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            cache = Path(directory)
+            current = cache / "backdrop-current.png"
+            current.write_bytes(b"current")
+            for index in range(AQUARIUM.RasterBackdrop.MAX_CACHE_FILES + 5):
+                (cache / f"backdrop-{index:02d}.png").write_bytes(b"x")
+
+            AQUARIUM.RasterBackdrop.prune_cache(cache, current)
+            remaining = list(cache.glob("backdrop-*.png"))
+
+        self.assertIn(current.name, {path.name for path in remaining})
+        self.assertLessEqual(len(remaining), AQUARIUM.RasterBackdrop.MAX_CACHE_FILES)
+
+
+class FilesystemSecurityTests(unittest.TestCase):
+    def test_lock_open_refuses_symlinks_without_touching_target(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "target"
+            target.write_text("preserve me", encoding="utf-8")
+            lock = root / "audio.lock"
+            lock.symlink_to(target)
+
+            with self.assertRaises(OSError):
+                AQUARIUM.open_lock_file(lock)
+
+            self.assertEqual(target.read_text(encoding="utf-8"), "preserve me")
+
+    def test_runtime_fallback_stays_in_the_private_user_cache(self) -> None:
+        original_runtime = os.environ.pop("XDG_RUNTIME_DIR", None)
+        try:
+            runtime = AQUARIUM.runtime_directory()
+        finally:
+            if original_runtime is not None:
+                os.environ["XDG_RUNTIME_DIR"] = original_runtime
+
+        self.assertEqual(runtime, AQUARIUM.user_cache_home() / "omarcharium" / "runtime")
+
 
 
 class DismissalInputTests(unittest.TestCase):
@@ -229,12 +301,14 @@ class AudioTests(unittest.TestCase):
 
 
 class IdleIntegrationTests(unittest.TestCase):
-    def run_helper(self, state_home: Path, action: str) -> subprocess.CompletedProcess[str]:
+    def run_helper(
+        self, state_home: Path, action: str, *, check: bool = True,
+    ) -> subprocess.CompletedProcess[str]:
         environment = os.environ.copy()
         environment["XDG_STATE_HOME"] = str(state_home)
         return subprocess.run(
             ["bash", str(ROOT / "scripts" / "idle-integration"), action],
-            check=True,
+            check=check,
             text=True,
             capture_output=True,
             env=environment,
@@ -253,6 +327,26 @@ class IdleIntegrationTests(unittest.TestCase):
             self.assertFalse(toggle.exists())
             self.assertFalse(owner.exists())
 
+    def test_legacy_empty_ownership_state_is_migrated_before_release(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            toggle = state / "omarchy" / "toggles" / "screensaver-off"
+            owner = state / "omarcharium" / "owns-screensaver-off"
+            toggle.parent.mkdir(parents=True)
+            owner.parent.mkdir(parents=True)
+            toggle.touch()
+            owner.touch()
+
+            self.run_helper(state, "enable")
+            status = self.run_helper(state, "status")
+
+            self.assertGreater(toggle.stat().st_size, 0)
+            self.assertEqual(toggle.read_bytes(), owner.read_bytes())
+            self.assertEqual(status.stdout.strip(), "owned")
+            self.run_helper(state, "disable")
+            self.assertFalse(toggle.exists())
+            self.assertFalse(owner.exists())
+
     def test_preexisting_user_toggle_is_never_removed(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory)
@@ -264,6 +358,50 @@ class IdleIntegrationTests(unittest.TestCase):
             self.run_helper(state, "disable")
             self.assertTrue(toggle.exists())
             self.assertFalse((state / "omarcharium" / "owns-screensaver-off").exists())
+
+    def test_replaced_toggle_is_not_mistaken_for_owned_state(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            self.run_helper(state, "enable")
+            toggle = state / "omarchy" / "toggles" / "screensaver-off"
+            owner = state / "omarcharium" / "owns-screensaver-off"
+            toggle.unlink()
+            toggle.touch()
+
+            self.run_helper(state, "disable")
+
+            self.assertTrue(toggle.exists())
+            self.assertFalse(owner.exists())
+
+    def test_symlinked_owner_is_refused_without_modifying_target(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            owner = state / "omarcharium" / "owns-screensaver-off"
+            owner.parent.mkdir(parents=True)
+            target = state / "target"
+            target.write_text("preserve me", encoding="utf-8")
+            owner.symlink_to(target)
+
+            result = self.run_helper(state, "enable", check=False)
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(target.read_text(encoding="utf-8"), "preserve me")
+            self.assertFalse((state / "omarchy" / "toggles" / "screensaver-off").exists())
+
+    def test_owned_state_is_private_and_reports_owned(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            self.run_helper(state, "enable")
+            toggle = state / "omarchy" / "toggles" / "screensaver-off"
+            owner_dir = state / "omarcharium"
+            owner = owner_dir / "owns-screensaver-off"
+
+            status = self.run_helper(state, "status")
+
+            self.assertEqual(status.stdout.strip(), "owned")
+            self.assertEqual(owner_dir.stat().st_mode & 0o777, 0o700)
+            self.assertEqual(toggle.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(owner.stat().st_mode & 0o777, 0o600)
 
 
 if __name__ == "__main__":

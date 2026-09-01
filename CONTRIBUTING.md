@@ -11,7 +11,7 @@ git clone https://github.com/DailenG/omarcharium.git
 cd omarcharium
 omarchy plugin validate .
 python3 -m unittest discover -s tests -v
-bash -n scripts/launch-aquarium scripts/idle-integration
+bash -n scripts/launch-aquarium scripts/idle-integration scripts/select-backdrop
 ```
 
 For a live development copy:
@@ -38,6 +38,7 @@ omarchy-shell shell rescanPlugins
 - Preserve deterministic `--snapshot` output when given a seed.
 - Bound configured populations and frame work.
 - Avoid per-frame subprocesses, file reads, or unbounded collections.
+- Preserve the 256 KiB configuration and 500 × 200 cell allocation ceilings.
 - Keep keyboard, click, and pointer-motion dismissal intact.
 
 ### Audio
@@ -46,6 +47,7 @@ omarchy-shell shell rescanPlugins
 - Use the single-process runtime lock; multi-monitor audio must never multiply.
 - Verify the raw PCM path with `python3 scripts/aquarium.py --audio-test 3`.
 - Do not add bundled recordings, codecs, Python packages, or network access.
+- Keep lock files no-follow, user-owned, mode `0600`, and inside private directories.
 
 ### Omarchy integration
 
@@ -53,6 +55,7 @@ omarchy-shell shell rescanPlugins
 - Use the `org.omarchy.screensaver` application class so the first-party idle service can observe the windows.
 - Preserve an existing user-owned `screensaver-off` toggle.
 - Removing or disabling the plugin must release only state owned by Omarcharium.
+- Treat the matched toggle and ownership markers as one ownership proof; never remove mismatched or replaced state.
 
 ### QML
 
@@ -69,7 +72,7 @@ Before opening a pull request:
 python3 -m unittest discover -s tests -v
 python3 scripts/aquarium.py --snapshot --width 100 --height 30 --seed 7 >/dev/null
 python3 scripts/aquarium.py --check-config >/dev/null
-bash -n scripts/launch-aquarium scripts/idle-integration
+bash -n scripts/launch-aquarium scripts/idle-integration scripts/select-backdrop
 omarchy plugin validate .
 /usr/lib/qt6/bin/qmllint -I "$OMARCHY_PATH/shell" Service.qml Config.qml
 ```
