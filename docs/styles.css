@@ -134,7 +134,7 @@ h3 { margin: 70px 0 14px; font-size: 1.1rem; letter-spacing: -.02em; }
 .feature-grid p { color: var(--muted); font-size: 12px; }
 
 .image-panel { position: relative; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; box-shadow: 0 34px 110px rgba(0,0,0,.4); }
-.image-panel img { width: 100%; }
+.image-panel img, .image-panel video { width: 100%; display: block; }
 .image-label { position: absolute; inset: 0 0 auto; padding: 13px 17px; display: flex; justify-content: space-between; color: var(--cyan); background: linear-gradient(to bottom, rgba(1,11,15,.86), transparent); font-size: 9px; letter-spacing: .12em; }
 
 .control-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }

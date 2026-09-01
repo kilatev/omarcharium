@@ -9,7 +9,11 @@ A living, terminal-native tropical aquarium for Omarchy. Omarcharium turns every
 
 **[Website](https://daileng.github.io/omarcharium/)** · **[Latest release](https://github.com/DailenG/omarcharium/releases/latest)** · **[Configuration reference](docs/CONFIGURATION.md)** · **[Report a bug](https://github.com/DailenG/omarcharium/issues/new/choose)**
 
-![Omarcharium artistic preview](preview.png)
+<p align="center">
+  <video src="https://raw.githubusercontent.com/DailenG/omarcharium/main/docs/assets/headline.mp4" poster="preview.png" autoplay loop muted playsinline width="100%">
+    <img src="preview.png" alt="Omarcharium tropical terminal aquarium in motion" width="100%" />
+  </video>
+</p>
 
 > No pip packages. No remote assets. No installer hooks. No privileged writes. Just Omarchy, Python, ANSI truecolor, and a carefully bounded reef simulation.
 
