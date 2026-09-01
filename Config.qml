@@ -16,7 +16,7 @@ Item {
   property var defaults: ({
     schemaVersion: 1,
     species: { neon_tetra: 10, clownfish: 4, angelfish: 3, discus: 3, butterflyfish: 2, royal_tang: 3, betta: 1, puffer: 2 },
-    art: { palette: "lagoon", bubbleDensity: 55, current: 1.0, showTelemetry: true },
+    art: { palette: "lagoon", bubbleDensity: 55, current: 1.0, showTelemetry: true, vegetationVolume: 50 },
     backdrop: { source: "plain", imagePath: "", fitMode: "cover", dimming: 45, effectsEnabled: false, effectIntensity: 55 },
     sound: { enabled: false, volume: 24 },
     integration: { idleEnabled: true, exitOnPointerMotion: true }
@@ -90,6 +90,7 @@ Item {
     next.art.bubbleDensity = Math.round(clamp(art.bubbleDensity, 0, 100, defaults.art.bubbleDensity))
     next.art.current = Math.round(clamp(art.current, 0.35, 1.8, defaults.art.current) * 100) / 100
     next.art.showTelemetry = art.showTelemetry === undefined ? defaults.art.showTelemetry : !!art.showTelemetry
+    next.art.vegetationVolume = Math.round(clamp(art.vegetationVolume, 0, 100, defaults.art.vegetationVolume))
     var backdrop = incoming.backdrop && typeof incoming.backdrop === "object" ? incoming.backdrop : ({})
     var backdropSource = String(backdrop.source || defaults.backdrop.source)
     next.backdrop.source = ["pelagic", "image"].indexOf(backdropSource) >= 0 ? backdropSource : "plain"
@@ -649,7 +650,7 @@ Item {
 
           Rectangle {
             width: parent.width
-            height: 206
+            height: 258
             radius: 11
             color: "#160c252d"
             border.width: 1
@@ -695,6 +696,7 @@ Item {
 
             Text { x: 16; y: 96; text: "BUBBLE DENSITY"; color: "#a9c6cc"; font.family: root.fontFamily; font.pixelSize: 11 }
             Text { x: 16; y: 143; text: "CURRENT VELOCITY"; color: "#a9c6cc"; font.family: root.fontFamily; font.pixelSize: 11 }
+            Text { x: 16; y: 190; text: "VEGETATION VOLUME"; color: "#a9c6cc"; font.family: root.fontFamily; font.pixelSize: 11 }
 
             Row {
               anchors { right: parent.right; rightMargin: 16; top: parent.top; topMargin: 88 }
@@ -728,17 +730,32 @@ Item {
               }
             }
 
+            Row {
+              anchors { right: parent.right; rightMargin: 16; top: parent.top; topMargin: 182 }
+              spacing: 8
+              Rectangle {
+                width: 34; height: 30; radius: 6; color: "#1cffffff"
+                Text { anchors.centerIn: parent; text: "−"; color: "#cce8ec"; font.family: root.fontFamily; font.pixelSize: 17 }
+                MouseArea { anchors.fill: parent; onClicked: root.changeArt("vegetationVolume", root.config.art.vegetationVolume - 5) }
+              }
+              Text { width: 54; height: 30; text: root.config.art.vegetationVolume + "%"; color: root.accent; font.family: root.fontFamily; font.pixelSize: 14; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+              Rectangle {
+                width: 34; height: 30; radius: 6; color: "#1cffffff"
+                Text { anchors.centerIn: parent; text: "+"; color: "#cce8ec"; font.family: root.fontFamily; font.pixelSize: 16 }
+                MouseArea { anchors.fill: parent; onClicked: root.changeArt("vegetationVolume", root.config.art.vegetationVolume + 5) }
+              }
+            }
+
             Rectangle {
-              x: 16; y: 177
+              x: 16; y: 228
               width: 18; height: 18; radius: 4
               color: root.config.art.showTelemetry ? root.accent : "transparent"
               border.width: 1; border.color: root.accent
               Text { anchors.centerIn: parent; text: root.config.art.showTelemetry ? "✓" : ""; color: "#061219"; font.family: root.fontFamily; font.pixelSize: 13; font.bold: true }
               MouseArea { anchors.fill: parent; onClicked: root.changeArt("showTelemetry", !root.config.art.showTelemetry) }
             }
-            Text { x: 43; y: 179; text: "show status display"; color: "#78959d"; font.family: root.fontFamily; font.pixelSize: 10 }
+            Text { x: 43; y: 230; text: "show status display"; color: "#78959d"; font.family: root.fontFamily; font.pixelSize: 10 }
           }
-
           Text {
             text: "BACKDROP LAYERS"
             color: "#8baab2"

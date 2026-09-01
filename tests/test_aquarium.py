@@ -21,7 +21,7 @@ class ConfigurationTests(unittest.TestCase):
     def test_normalisation_clamps_public_configuration_contract(self) -> None:
         config = AQUARIUM.normalise_config({
             "species": {"neon_tetra": 999, "puffer": -4, "unknown": 12},
-            "art": {"palette": "not-a-palette", "bubbleDensity": 155, "current": 0, "showTelemetry": 0},
+            "art": {"palette": "not-a-palette", "bubbleDensity": 155, "current": 0, "showTelemetry": 0, "vegetationVolume": 400},
             "backdrop": {"source": "unknown", "effectsEnabled": "yes", "effectIntensity": 400},
             "sound": {"enabled": 1, "volume": "41"},
             "integration": {"idleEnabled": False, "exitOnPointerMotion": False},
@@ -34,6 +34,7 @@ class ConfigurationTests(unittest.TestCase):
         self.assertEqual(config["art"]["bubbleDensity"], 100)
         self.assertEqual(config["art"]["current"], 0.35)
         self.assertFalse(config["art"]["showTelemetry"])
+        self.assertEqual(config["art"]["vegetationVolume"], 100)
         self.assertEqual(config["backdrop"]["source"], "plain")
         self.assertFalse(config["backdrop"]["effectsEnabled"])
         self.assertEqual(config["backdrop"]["effectIntensity"], 100)
@@ -123,6 +124,27 @@ class RendererTests(unittest.TestCase):
             with self.subTest(palette=palette):
                 self.assertIn("·", scene.render().plain())
 
+
+    def test_vegetation_volume_scales_kelp_and_flora(self) -> None:
+        base = {
+            "species": {key: 0 for key in AQUARIUM.SPRITES},
+            "art": {"showTelemetry": False, "vegetationVolume": 0},
+            "backdrop": {"source": "plain", "effectsEnabled": False},
+        }
+        bare = AQUARIUM.OceanScene(80, 24, AQUARIUM.normalise_config(base), seed=7).render().plain()
+        self.assertNotIn("}", bare)
+        self.assertNotIn("{", bare)
+
+        base["art"]["vegetationVolume"] = 25
+        low = AQUARIUM.OceanScene(80, 24, AQUARIUM.normalise_config(base), seed=7).render().plain()
+        low_stalk_chars = low.count("}") + low.count("{")
+
+        base["art"]["vegetationVolume"] = 100
+        dense = AQUARIUM.OceanScene(80, 24, AQUARIUM.normalise_config(base), seed=7).render().plain()
+        dense_stalk_chars = dense.count("}") + dense.count("{")
+
+        self.assertGreater(low_stalk_chars, 0)
+        self.assertGreater(dense_stalk_chars, low_stalk_chars * 2)
 
 class RasterBackdropTests(unittest.TestCase):
     def test_source_validation_accepts_only_bounded_local_images(self) -> None:

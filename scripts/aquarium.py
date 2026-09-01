@@ -188,6 +188,9 @@ def normalise_config(raw: Any) -> dict[str, Any]:
             "bubbleDensity": int(clamp_number(art.get("bubbleDensity"), 0, 100, fallback_art.get("bubbleDensity", 55))),
             "current": round(clamp_number(art.get("current"), 0.35, 1.8, fallback_art.get("current", 1.0)), 2),
             "showTelemetry": bool(art.get("showTelemetry", fallback_art.get("showTelemetry", True))),
+            "vegetationVolume": int(clamp_number(
+                art.get("vegetationVolume"), 0, 100, fallback_art.get("vegetationVolume", 50),
+            )),
         },
         "backdrop": {
             "source": backdrop_source,
@@ -465,6 +468,7 @@ class OceanScene:
     def _draw_habitat(self, canvas: FrameBuffer) -> None:
         palette = self.palette
         floor = self.height - 3
+        vegetation_volume = self.config["art"].get("vegetationVolume", 50)
         for x in range(self.width):
             ridge = int(1.4 * math.sin(x * 0.09) + 0.7 * math.sin(x * 0.31))
             y = floor + ridge // 2
@@ -472,24 +476,33 @@ class OceanScene:
             if y + 1 < self.height:
                 canvas.put(x, y + 1, ".", palette["rock"])
 
-        # Kelp columns are deterministic functions, so they sway without object churn.
-        kelp_positions = (8, 17, self.width - 14, self.width - 31)
-        for plant, anchor in enumerate(kelp_positions):
-            if not 2 <= anchor < self.width - 2:
-                continue
-            height = 5 + (plant * 3) % 8
-            for segment in range(height):
-                y = floor - segment
-                sway = int(round(math.sin(self.elapsed * (0.7 + plant * 0.08) + segment * 0.55 + plant)))
-                canvas.put(anchor + sway, y, "}" if sway >= 0 else "{", palette["kelp"])
-            canvas.put(anchor, floor + 1, "Y", palette["kelp"])
+        # Kelp columns and marine flora scale in number and height with vegetation volume.
+        if vegetation_volume > 0:
+            max_stalks = max(1, self.width // 7)
+            stalk_count = max(1, int(round(max_stalks * (vegetation_volume / 100.0))))
+            height_scale = 0.45 + 0.85 * (vegetation_volume / 100.0)
+            for plant in range(stalk_count):
+                anchor = int((plant * (self.width * 0.6180339887) + 5) % (self.width - 8)) + 4
+                base_height = 4 + (plant * 7 + (plant % 3) * 5) % 8
+                height = max(2, min(self.height - 5, int(round(base_height * height_scale))))
+                for segment in range(height):
+                    y = floor - segment
+                    sway = int(round(math.sin(self.elapsed * (0.65 + (plant % 5) * 0.08) + segment * 0.48 + plant * 1.3)))
+                    canvas.put(anchor + sway, y, "}" if sway >= 0 else "{", palette["kelp"])
+                canvas.put(anchor, floor + 1, "Y", palette["kelp"])
 
-        # A central branching coral acts as the visual signature of each scene.
-        coral_x = self.width // 2 + int(math.sin(self.width) * self.width * 0.08)
-        coral_lines = ("   \\ | /", "  \\ \\|/ /", "---\\ | /---", "    \\|/", "     Y")
-        start_y = floor - len(coral_lines) + 2
-        for row, line in enumerate(coral_lines):
-            canvas.text(coral_x - 6, start_y + row, line, palette["coral"])
+        # Central branching coral appears once vegetation is present.
+        if vegetation_volume >= 15:
+            coral_x = self.width // 2 + int(math.sin(self.width) * self.width * 0.08)
+            coral_lines = ("   \\ | /", "  \\ \\|/ /", "---\\ | /---", "    \\|/", "     Y")
+            start_y = floor - len(coral_lines) + 2
+            for row, line in enumerate(coral_lines):
+                canvas.text(coral_x - 6, start_y + row, line, palette["coral"])
+
+        # Secondary marine flora blooms at higher vegetation density.
+        if vegetation_volume >= 60:
+            for cx in (max(6, self.width // 6), min(self.width - 8, self.width * 5 // 6)):
+                canvas.text(cx, floor - 1, "\\|/", palette["coral"])
 
         for rock_x, glyph in ((2, "[__]"), (self.width // 3, "(_/\\_)"), (self.width - 9, "[___]")):
             canvas.text(rock_x, floor, glyph, palette["rock"])
