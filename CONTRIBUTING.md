@@ -7,7 +7,7 @@ Thank you for helping this reef evolve. Contributions should preserve three inva
 Use an up-to-date Omarchy Quattro installation with Python 3.11+, Quickshell, PipeWire tools, and one of Omarchy's supported terminal emulators.
 
 ```sh
-git clone https://github.com/DailenG/omarcharium.git
+git clone <repository-url>
 cd omarcharium
 omarchy plugin validate .
 python3 -m unittest discover -s tests -v

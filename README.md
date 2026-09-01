@@ -207,9 +207,8 @@ rm -rf ~/.config/omarcharium ~/.local/state/omarcharium
 ```
 
 ## Development
-
 ```bash
-git clone https://github.com/DailenG/omarcharium.git
+git clone <repository-url>
 cd omarcharium
 python3 -m unittest discover -s tests -v
 bash -n scripts/launch-aquarium scripts/idle-integration scripts/select-backdrop
