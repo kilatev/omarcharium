@@ -32,7 +32,11 @@ Item {
   }
 
   function startAquarium() {
-    if (!pluginDir) return
+    if (!pluginDir) {
+      console.warn("Omarcharium startAquarium called but pluginDir is empty")
+      return
+    }
+    console.log("Omarcharium launching screensaver: " + launcherPath)
     Quickshell.execDetached(["bash", launcherPath, "force"])
   }
 
@@ -78,6 +82,7 @@ Item {
     timeout: root.screensaverTimeout
     respectInhibitors: true
     onIsIdleChanged: {
+      console.log("Omarcharium idle state changed: isIdle=" + isIdle + " (timeout=" + root.screensaverTimeout + "s)")
       if (isIdle) root.startAquarium()
     }
   }
@@ -124,5 +129,9 @@ Item {
 
   Component.onDestruction: {
     if (root.pluginDir) Quickshell.execDetached(["bash", root.integrationPath, "disable"])
+  }
+
+  Component.onCompleted: {
+    configFile.reload()
   }
 }
