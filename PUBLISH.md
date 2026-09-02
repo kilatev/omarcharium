@@ -111,6 +111,10 @@ To update the official listing on [plugins.omarchy.org](https://plugins.omarchy.
 4. The automated marketplace bot will validate the repository, check compatibility, and run the Automated Security Baseline.
 5. A marketplace maintainer reviews the report and promotes the update with the `approved-and-verified` label.
 
+> **Marketplace Taxonomy Reference**:
+> - **Categories**: `Appearance`, `Desktop`, `Developer Tools`, `Hardware`, `Kids`, `Productivity`, `System`, `Widgets`, `Other`.
+> - **Tags** (max 3): `ai`, `bar`, `education`, `games`, `hyprland`, `kids`, `launcher`, `media`, `power-management`, `quickshell`, `security`, `system`, `workspaces`.
+> - To request a tag or category adjustment (such as adding the `kids` tag) on an existing listing, include a note in the verification issue for the maintainers.
 ### 8. Verify CI and User Installation
 
 1. Confirm GitHub Actions CI pipeline passes:
