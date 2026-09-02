@@ -96,17 +96,32 @@ gh release create "v${VERSION}" \
   --notes-file <(sed -n "/## \[${VERSION}\]/,/## \[/p" CHANGELOG.md | sed '$d')
 ```
 
-### 7. Verify CI and Marketplace Availability
+### 7. Update the Omarchy Plugin Marketplace Listing
 
-1. Check the GitHub Actions CI pipeline to ensure the build and tests pass:
+To update the official listing on [plugins.omarchy.org](https://plugins.omarchy.org) / [omarchyplugins.com](https://omarchyplugins.com):
+
+1. Open the [Omarchy Marketplace Plugin Verification Form](https://github.com/omacom/omarchy-plugin-marketplace/issues/new?template=verify-plugin.yml).
+2. Fill out the form fields:
+   - **Verification action**: Select `Verify and publish a newer upstream commit`.
+   - **Plugin ID**: `dailen.omarcharium`
+   - **Repository URL**: `https://github.com/DailenG/omarcharium`
+   - **Target commit**: Full 40-character commit SHA of the release commit (e.g. `$(git rev-parse HEAD)`).
+   - **Verification acknowledgment**: Check the required acknowledgment box.
+3. Submit the issue.
+4. The automated marketplace bot will validate the repository, check compatibility, and run the Automated Security Baseline.
+5. A marketplace maintainer reviews the report and promotes the update with the `approved-and-verified` label.
+
+### 8. Verify CI and User Installation
+
+1. Confirm GitHub Actions CI pipeline passes:
    ```bash
    gh run watch
    ```
-2. Once the tag and release are published on GitHub, users can install or update the plugin via:
+2. Once the release is published, users can update via:
    ```bash
    omarchy plugin update dailen.omarcharium
    ```
-   Or install for the first time:
+   Or install via:
    ```bash
    omarchy plugin add https://github.com/DailenG/omarcharium
    ```
