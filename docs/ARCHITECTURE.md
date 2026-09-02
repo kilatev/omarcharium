@@ -70,7 +70,7 @@ To suppress only the stock visualizer, `scripts/idle-integration` creates the ex
 
 Every renderer may request ambience, but `AmbientAudio` takes a non-blocking no-follow `flock` on a mode-`0600` regular file. Only one monitor becomes the audio leader. The lock lives in a mode-`0700` `$XDG_RUNTIME_DIR/omarcharium/` directory, or a private cache fallback if no absolute runtime directory is available. Audio streams generated signed 16-bit stereo PCM at 24 kHz to `pw-cat --raw`; no sample assets or codecs are involved.
 
-The synthesis combines slowly filtered noise, water motion, and sparse frequency-rising bubble envelopes. `--audio-test` adds three diagnostic tones and verifies that `pw-cat` remains alive before reporting success.
+The synthesis provides independently toggled continuous water motion and sparse frequency-rising bubble envelopes. `--audio-test` adds three diagnostic tones and verifies that `pw-cat` remains alive before reporting success.
 
 | Resource | Access |
 |---|---|

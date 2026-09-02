@@ -22,7 +22,7 @@ A living, terminal-native tropical aquarium for Omarchy. Omarcharium turns every
 - **Eight distinct tropical species** — neon tetra shoals, clownfish, angelfish, discus, butterflyfish, royal tangs, bettas, and puffers, each with its own silhouette, palette, speed, depth preference, and fin cycle.
 - **A living terminal habitat** — animated caustics, drifting motes, bubble columns, swaying kelp, branching coral, sand ridges, and depth-aware drawing.
 - **Four complete chromatic depths** — Lagoon, Midnight, Coral, and Phosphor.
-- **Optional procedural ambience** — water movement and rising bubble chirps synthesized locally and streamed as raw PCM to PipeWire.
+- **Optional procedural ambience** — continuous filtered water flow and sparse rising bubble chirps synthesized locally, toggled independently, and streamed as raw PCM to PipeWire.
 - **Omarchy-native lifecycle** — one fullscreen terminal per monitor, standard screensaver window identity, inhibitor-aware idle timing, and unchanged lock behavior.
 - **A real control room** — exact populations, water dynamics, audio testing, idle integration, start, stop, reset, pointer controls, and keyboard navigation.
 - **Conservative system behavior** — preserves user-owned toggles, never modifies packaged Omarchy files, and cleans up every terminal and runtime state it owns.
@@ -87,7 +87,7 @@ No Python package, compiled extension, bundled recording, network service, or se
 | Right-click tray icon | Open Control Room, Immerse Now, or Report Bug |
 | **Begin Immersion** | Save parameters and launch on every monitor |
 | **Surface** | Close every active aquarium window |
-| **Test 8s** | Play three diagnostic tones, then generated water ambience |
+| **Test 8s** | Play three diagnostic tones, then configured water and bubble ambience |
 | Any key or click | Return to the desktop from the screensaver |
 | Pointer motion | Return to the desktop when **Exit on pointer movement** is enabled |
 | Escape | Close the control room |
@@ -118,7 +118,7 @@ The control room writes settings atomically inside a mode-`0700` directory:
 ~/.config/omarcharium/config.json
 ```
 
-Every species has an exact independent population. The water column controls palette, bubbles, current velocity, reef density, and the terminal status display. Backdrop controls select Plain Depth, Pelagic Field, or a local image through Omarchy's native image picker, with fit, dimming, and independently layered pelagic effects. Ambience controls generation and volume. Surface controls can keep the reef visible during pointer movement while clicks and keyboard input continue to dismiss it.
+Every species has an exact independent population. The water column controls palette, bubbles, current velocity, reef density, and the terminal status display. Backdrop controls select Plain Depth, Pelagic Field, or a local image through Omarchy's native image picker, with fit, dimming, and independently layered pelagic effects. Ambience controls master generation, volume, and independent water flow and bubble channels. Surface controls can keep the reef visible during pointer movement while clicks and keyboard input continue to dismiss it.
 
 See the complete [configuration reference](docs/CONFIGURATION.md) for limits, defaults, JSON schema, and diagnostics.
 
@@ -135,7 +135,7 @@ Malformed, missing, oversized, and out-of-range configuration values normalize t
 
 ## Procedural ambience
 
-Audio is disabled by default. When enabled, one aquarium process acquires a private no-follow lock under `$XDG_RUNTIME_DIR/omarcharium/` and becomes the audio leader; other monitor instances stay silent. If no absolute runtime directory is available, the lock falls back to the private Omarcharium cache. The generator combines filtered water movement with sparse, frequency-rising bubble envelopes and streams signed 16-bit stereo PCM directly to PipeWire.
+Audio is disabled by default. When enabled, one aquarium process acquires a private no-follow lock under `$XDG_RUNTIME_DIR/omarcharium/` and becomes the audio leader; other monitor instances stay silent. If no absolute runtime directory is available, the lock falls back to the private Omarcharium cache. The generator synthesises continuous filtered water movement and sparse, frequency-rising bubble envelopes as independent channels and streams signed 16-bit stereo PCM directly to PipeWire.
 
 Test the full path without a TTY or screensaver window:
 
@@ -143,7 +143,7 @@ Test the full path without a TTY or screensaver window:
 python3 scripts/aquarium.py --audio-test 8
 ```
 
-The diagnostic plays three clearly audible rising tones before transitioning into the same water texture used during immersion. Audio follows the current PipeWire default sink and terminates with the screensaver.
+The diagnostic plays three clearly audible rising tones before transitioning into the configured water and/or bubble texture used during immersion. Audio follows the current PipeWire default sink and terminates with the screensaver.
 
 ## Idle and lock behavior
 
