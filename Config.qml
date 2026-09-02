@@ -18,7 +18,7 @@ Item {
     species: { neon_tetra: 10, clownfish: 4, angelfish: 3, discus: 3, butterflyfish: 2, royal_tang: 3, betta: 1, puffer: 2 },
     art: { palette: "lagoon", bubbleDensity: 55, current: 1.0, showTelemetry: true, reefDensity: 50 },
     backdrop: { source: "plain", imagePath: "", fitMode: "cover", dimming: 45, effectsEnabled: false, effectIntensity: 55 },
-    sound: { enabled: false, volume: 24 },
+    sound: { enabled: false, volume: 24, water: true, bubbles: true },
     integration: { idleEnabled: true, exitOnPointerMotion: true }
   })
   property var speciesDefinitions: [
@@ -103,6 +103,8 @@ Item {
     var sound = incoming.sound && typeof incoming.sound === "object" ? incoming.sound : ({})
     next.sound.enabled = sound.enabled === undefined ? defaults.sound.enabled : !!sound.enabled
     next.sound.volume = Math.round(clamp(sound.volume, 0, 100, defaults.sound.volume))
+    next.sound.water = sound.water === undefined ? (sound.waterFlow === undefined ? (sound.waterEnabled === undefined ? defaults.sound.water : !!sound.waterEnabled) : !!sound.waterFlow) : !!sound.water
+    next.sound.bubbles = sound.bubbles === undefined ? (sound.bubblesEnabled === undefined ? defaults.sound.bubbles : !!sound.bubblesEnabled) : !!sound.bubbles
     var integration = incoming.integration && typeof incoming.integration === "object" ? incoming.integration : ({})
     next.integration.idleEnabled = integration.idleEnabled === undefined ? defaults.integration.idleEnabled : !!integration.idleEnabled
     next.integration.exitOnPointerMotion = typeof integration.exitOnPointerMotion === "boolean" ? integration.exitOnPointerMotion : defaults.integration.exitOnPointerMotion
@@ -922,17 +924,17 @@ Item {
 
           Rectangle {
             width: parent.width
-            height: 82
+            height: 148
             radius: 11
             color: root.config.sound.enabled ? "#241bb8c8" : "#160c252d"
             border.width: 1
             border.color: root.config.sound.enabled ? root.accent : "#263e6670"
 
-            Text { x: 16; y: 14; text: "PROCEDURAL WATER + BUBBLE SYNTHESIS"; color: "#d7eef2"; font.family: root.fontFamily; font.pixelSize: 12; font.bold: true }
-            Text { x: 16; y: 41; text: "generated locally · streamed to PipeWire · no audio files"; color: "#718f98"; font.family: root.fontFamily; font.pixelSize: 10 }
+            Text { x: 16; y: 14; text: "PROCEDURAL AMBIENCE SYNTHESIS"; color: "#d7eef2"; font.family: root.fontFamily; font.pixelSize: 12; font.bold: true }
+            Text { x: 16; y: 39; text: "generated locally · streamed to PipeWire · no audio files"; color: "#718f98"; font.family: root.fontFamily; font.pixelSize: 10 }
 
             Rectangle {
-              anchors { right: soundToggle.left; rightMargin: 12; verticalCenter: parent.verticalCenter }
+              anchors { right: soundToggle.left; rightMargin: 12; top: parent.top; topMargin: 18 }
               width: 74; height: 30; radius: 6
               color: audioTest.running ? "#335ce6df" : "#1cffffff"
               border.width: 1; border.color: "#47778a92"
@@ -949,7 +951,7 @@ Item {
 
             Rectangle {
               id: soundToggle
-              anchors { right: volumeRow.left; rightMargin: 18; verticalCenter: parent.verticalCenter }
+              anchors { right: volumeRow.left; rightMargin: 18; top: parent.top; topMargin: 20 }
               width: 48; height: 26; radius: 13
               color: root.config.sound.enabled ? root.accent : "#31454b"
               Rectangle {
@@ -964,7 +966,7 @@ Item {
 
             Row {
               id: volumeRow
-              anchors { right: parent.right; rightMargin: 16; verticalCenter: parent.verticalCenter }
+              anchors { right: parent.right; rightMargin: 16; top: parent.top; topMargin: 19 }
               spacing: 7
               Rectangle {
                 width: 30; height: 28; radius: 6; color: "#1cffffff"
@@ -976,6 +978,107 @@ Item {
                 width: 30; height: 28; radius: 6; color: "#1cffffff"
                 Text { anchors.centerIn: parent; text: "+"; color: "#cce8ec"; font.family: root.fontFamily; font.pixelSize: 15 }
                 MouseArea { anchors.fill: parent; onClicked: root.changeSound("volume", root.config.sound.volume + 5) }
+              }
+            }
+
+            Rectangle {
+              x: 16
+              y: 70
+              width: parent.width - 32
+              height: 1
+              color: "#263e6670"
+            }
+
+            Row {
+              x: 16
+              y: 82
+              width: parent.width - 32
+              spacing: 20
+
+              Item {
+                width: Math.floor((parent.width - 20) / 2)
+                height: 52
+
+                Rectangle {
+                  id: waterToggle
+                  x: 0
+                  y: 12
+                  width: 44; height: 24; radius: 12
+                  color: root.config.sound.water ? root.accent : "#31454b"
+                  Rectangle {
+                    x: root.config.sound.water ? parent.width - width - 2 : 2
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 18; height: 18; radius: 9
+                    color: root.config.sound.water ? "#071218" : "#aec4c9"
+                    Behavior on x { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                  }
+                }
+
+                Column {
+                  anchors { left: waterToggle.right; leftMargin: 12; top: parent.top; topMargin: 7; right: parent.right }
+                  spacing: 4
+                  Text {
+                    text: "WATER FLOW"
+                    color: root.config.sound.water ? "#d7eef2" : "#718f98"
+                    font.family: root.fontFamily
+                    font.pixelSize: 11
+                    font.bold: true
+                  }
+                  Text {
+                    text: "continuous ambient filtered motion"
+                    color: "#718f98"
+                    font.family: root.fontFamily
+                    font.pixelSize: 10
+                  }
+                }
+
+                MouseArea {
+                  anchors.fill: parent
+                  onClicked: root.changeSound("water", !root.config.sound.water)
+                }
+              }
+
+              Item {
+                width: Math.floor((parent.width - 20) / 2)
+                height: 52
+
+                Rectangle {
+                  id: bubblesToggle
+                  x: 0
+                  y: 12
+                  width: 44; height: 24; radius: 12
+                  color: root.config.sound.bubbles ? root.accent : "#31454b"
+                  Rectangle {
+                    x: root.config.sound.bubbles ? parent.width - width - 2 : 2
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 18; height: 18; radius: 9
+                    color: root.config.sound.bubbles ? "#071218" : "#aec4c9"
+                    Behavior on x { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                  }
+                }
+
+                Column {
+                  anchors { left: bubblesToggle.right; leftMargin: 12; top: parent.top; topMargin: 7; right: parent.right }
+                  spacing: 4
+                  Text {
+                    text: "BUBBLE CHIRPS"
+                    color: root.config.sound.bubbles ? "#d7eef2" : "#718f98"
+                    font.family: root.fontFamily
+                    font.pixelSize: 11
+                    font.bold: true
+                  }
+                  Text {
+                    text: "sparse rising-pitch bubble bursts"
+                    color: "#718f98"
+                    font.family: root.fontFamily
+                    font.pixelSize: 10
+                  }
+                }
+
+                MouseArea {
+                  anchors.fill: parent
+                  onClicked: root.changeSound("bubbles", !root.config.sound.bubbles)
+                }
               }
             }
           }

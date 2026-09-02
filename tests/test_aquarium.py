@@ -40,12 +40,33 @@ class ConfigurationTests(unittest.TestCase):
         self.assertEqual(config["backdrop"]["effectIntensity"], 100)
         self.assertTrue(config["sound"]["enabled"])
         self.assertEqual(config["sound"]["volume"], 41)
+        self.assertTrue(config["sound"]["water"])
+        self.assertTrue(config["sound"]["bubbles"])
         self.assertFalse(config["integration"]["idleEnabled"])
         self.assertFalse(config["integration"]["exitOnPointerMotion"])
 
     def test_legacy_vegetation_volume_key_is_accepted_as_reef_density(self) -> None:
         config = AQUARIUM.normalise_config({"art": {"vegetationVolume": 75}})
         self.assertEqual(config["art"]["reefDensity"], 75)
+
+    def test_sound_channels_are_normalized_and_accept_aliases(self) -> None:
+        config = AQUARIUM.normalise_config({
+            "sound": {"water": False, "bubbles": True},
+        })
+        self.assertFalse(config["sound"]["water"])
+        self.assertTrue(config["sound"]["bubbles"])
+
+        config_alias = AQUARIUM.normalise_config({
+            "sound": {"waterFlow": False, "bubblesEnabled": False},
+        })
+        self.assertFalse(config_alias["sound"]["water"])
+        self.assertFalse(config_alias["sound"]["bubbles"])
+
+        config_enabled_alias = AQUARIUM.normalise_config({
+            "sound": {"waterEnabled": False},
+        })
+        self.assertFalse(config_enabled_alias["sound"]["water"])
+        self.assertTrue(config_enabled_alias["sound"]["bubbles"])
 
     def test_malformed_pointer_motion_setting_uses_safe_default(self) -> None:
         config = AQUARIUM.normalise_config({"integration": {"exitOnPointerMotion": "false"}})
@@ -298,6 +319,30 @@ class AudioTests(unittest.TestCase):
         arguments = AQUARIUM.parse_args(["--audio-test"])
         self.assertEqual(arguments.audio_test, 8.0)
         self.assertTrue(AQUARIUM.parse_args(["--check-backdrop"]).check_backdrop)
+    def test_ambient_audio_accepts_individual_channel_toggles(self) -> None:
+        audio = AQUARIUM.AmbientAudio(50, Path("/tmp"), water=False, bubbles=True)
+        self.assertFalse(audio.water)
+        self.assertTrue(audio.bubbles)
+
+    def test_ambient_audio_refuses_start_when_all_channels_disabled(self) -> None:
+        audio = AQUARIUM.AmbientAudio(50, Path("/tmp"), water=False, bubbles=False)
+        self.assertFalse(audio.start())
+        self.assertEqual(audio.last_error, "water and bubble audio components are both disabled")
+
+    def test_ambient_audio_refuses_start_when_volume_is_zero(self) -> None:
+        audio = AQUARIUM.AmbientAudio(0, Path("/tmp"), water=True, bubbles=True)
+        self.assertFalse(audio.start())
+        self.assertEqual(audio.last_error, "volume is zero")
+    def test_ambient_audio_synthesises_expected_channels(self) -> None:
+        audio_water = AQUARIUM.AmbientAudio(100, Path("/tmp"), diagnostic=False, water=True, bubbles=False)
+        self.assertTrue(audio_water.water)
+        self.assertFalse(audio_water.bubbles)
+
+        audio_bubbles = AQUARIUM.AmbientAudio(100, Path("/tmp"), diagnostic=False, water=False, bubbles=True)
+        self.assertFalse(audio_bubbles.water)
+        self.assertTrue(audio_bubbles.bubbles)
+
+
 
 
 class IdleIntegrationTests(unittest.TestCase):

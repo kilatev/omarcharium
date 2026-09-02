@@ -2,6 +2,16 @@
 
 All notable changes are documented here. This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.0.10] - 2026-09-02
+
+### Added
+
+- Independent controls for **Water Flow** and **Bubble Chirps** in both the ambient audio synthesis engine and control room UI.
+- Configuration options `sound.water` and `sound.bubbles` with alias normalization (`waterFlow`, `waterEnabled`, `bubblesEnabled`).
+- Ambient audio generation split allowing peaceful white-noise water textures without bubble chirps, or bubble bursts without continuous water motion.
+- Descriptive channel status in `--audio-test` output.
+- Documented the release and marketplace distribution workflow in `PUBLISH.md`.
+
 ## [1.0.9] - 2026-08-31
 
 ### Security
@@ -99,6 +109,7 @@ All notable changes are documented here. This project follows [Semantic Versioni
 - Deterministic renderer snapshots, configuration normalization, and behavioral tests.
 - Marketplace manifest, preview artwork, actual screenshots, contributor guide, security policy, and CI validation.
 
+[1.0.10]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.10
 [1.0.9]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.9
 [1.0.8]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.8
 [1.0.7]: https://github.com/DailenG/omarcharium/releases/tag/v1.0.7

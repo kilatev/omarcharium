@@ -46,7 +46,14 @@ The background source and effects are independent. Pelagic effects can run over 
 
 ## Ambience
 
-Audio is off by default. When enabled, `volume` controls the generated stream from 0–100%. Only one monitor instance emits audio.
+Audio is off by default. When enabled, `volume` controls the generated stream from 0–100%. Only one monitor instance emits audio. Water flow and bubble chirps can be toggled independently.
+
+| Setting | Range | Default | Effect |
+|---|---:|---:|---|
+| Master audio | On/off | Off | Synthesised PipeWire ambience stream |
+| Volume | 0–100% | 24% | Output stream volume |
+| Water flow | On/off | On | Continuous filtered low-frequency water movement |
+| Bubble chirps | On/off | On | Sparse rising-frequency bubble envelopes |
 
 Use **Test 8s** in the control room, or run:
 
@@ -54,8 +61,7 @@ Use **Test 8s** in the control room, or run:
 python3 scripts/aquarium.py --audio-test 8
 ```
 
-The test does not require a TTY. It plays three rising tones and then the same generated water texture used by the screensaver. Audio follows the current PipeWire default sink.
-
+The test does not require a TTY. It plays three rising tones and then the configured water texture and/or bubble chirps used by the screensaver. Audio follows the current PipeWire default sink.
 ## Idle integration
 
 **Automatic Idle Immersion** uses `idle.screensaver` from `~/.config/omarchy/shell.json`. Locking remains under Omarchy's first-party idle service and continues to use `idle.lock`.
@@ -98,7 +104,9 @@ Disable automatic immersion to keep tray and manual launching while restoring th
   },
   "sound": {
     "enabled": false,
-    "volume": 24
+    "volume": 24,
+    "water": true,
+    "bubbles": true
   },
   "integration": {
     "idleEnabled": true,

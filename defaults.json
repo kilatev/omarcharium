@@ -27,7 +27,9 @@
   },
   "sound": {
     "enabled": false,
-    "volume": 24
+    "volume": 24,
+    "water": true,
+    "bubbles": true
   },
   "integration": {
     "idleEnabled": true,

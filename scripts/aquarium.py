@@ -223,6 +223,18 @@ def normalise_config(raw: Any) -> dict[str, Any]:
         "sound": {
             "enabled": bool(sound.get("enabled", fallback_sound.get("enabled", False))),
             "volume": int(clamp_number(sound.get("volume"), 0, 100, fallback_sound.get("volume", 24))),
+            "water": bool(
+                sound.get(
+                    "water",
+                    sound.get("waterFlow", sound.get("waterEnabled", fallback_sound.get("water", True))),
+                )
+            ),
+            "bubbles": bool(
+                sound.get(
+                    "bubbles",
+                    sound.get("bubblesEnabled", fallback_sound.get("bubbles", True)),
+                )
+            ),
         },
         "integration": {
             "idleEnabled": bool(integration.get("idleEnabled", fallback_integration.get("idleEnabled", True))),
@@ -658,17 +670,25 @@ class OceanScene:
 class AmbientAudio:
     """Water and bubble synthesis streamed directly to PipeWire."""
 
-    def __init__(self, volume: int, runtime_dir: Path, diagnostic: bool = False) -> None:
+    def __init__(
+        self,
+        volume: int,
+        runtime_dir: Path,
+        diagnostic: bool = False,
+        water: bool = True,
+        bubbles: bool = True,
+    ) -> None:
         self.volume = max(0.0, min(1.0, volume / 100.0))
         self.runtime_dir = runtime_dir
         self.diagnostic = diagnostic
+        self.water = bool(water)
+        self.bubbles = bool(bubbles)
         self.stop_event = threading.Event()
         self.thread: threading.Thread | None = None
         self.process: subprocess.Popen[bytes] | None = None
         self.lock_file: Any = None
         self.last_error = ""
         self.rng = random.Random(os.getpid() ^ int(time.time()))
-
     @staticmethod
     def playback_command() -> list[str]:
         return [
@@ -679,6 +699,9 @@ class AmbientAudio:
     def start(self) -> bool:
         if self.volume <= 0:
             self.last_error = "volume is zero"
+            return False
+        if not self.diagnostic and not self.water and not self.bubbles:
+            self.last_error = "water and bubble audio components are both disabled"
             return False
         if not shutil.which("pw-cat"):
             self.last_error = "pw-cat is unavailable; install PipeWire tools"
@@ -740,23 +763,24 @@ class AmbientAudio:
         while not self.stop_event.is_set() and self.process.poll() is None:
             block = bytearray(block_size * 4)
             for index in range(block_size):
-                low_noise = low_noise * 0.985 + self.rng.uniform(-1.0, 1.0) * 0.015
-                wave_phase += math.tau * 0.17 / sample_rate
-                water = low_noise * 1.35 + math.sin(wave_phase) * 0.12
-                if bubble_remaining <= 0 and self.rng.random() < 0.00008:
+                water = 0.0
+                if self.water:
+                    low_noise = low_noise * 0.985 + self.rng.uniform(-1.0, 1.0) * 0.015
+                    wave_phase += math.tau * 0.17 / sample_rate
+                    water = low_noise * 1.35 + math.sin(wave_phase) * 0.12
+                if self.bubbles and bubble_remaining <= 0 and self.rng.random() < 0.00008:
                     bubble_length = self.rng.randint(1200, 3200)
                     bubble_remaining = bubble_length
                     bubble_start_frequency = self.rng.uniform(420.0, 920.0)
                     bubble_phase = 0.0
                 bubble = 0.0
-                if bubble_remaining > 0:
+                if self.bubbles and bubble_remaining > 0:
                     progress = 1.0 - bubble_remaining / bubble_length
                     frequency = bubble_start_frequency * (1.0 + progress * 1.7)
                     bubble_phase += math.tau * frequency / sample_rate
                     envelope = math.sin(math.pi * progress) ** 2
                     bubble = math.sin(bubble_phase) * envelope * 0.48
                     bubble_remaining -= 1
-
                 diagnostic_tone = 0.0
                 if self.diagnostic and rendered_samples < int(sample_rate * 1.8):
                     note = min(2, rendered_samples // int(sample_rate * 0.6))
@@ -1115,7 +1139,12 @@ def run_interactive(config: dict[str, Any], seed: int, sound_override: bool | No
     palette = scene.palette
     runtime_dir = runtime_directory()
     sound_enabled = config["sound"]["enabled"] if sound_override is None else sound_override
-    audio = AmbientAudio(config["sound"]["volume"], runtime_dir)
+    audio = AmbientAudio(
+        config["sound"]["volume"],
+        runtime_dir,
+        water=config["sound"]["water"],
+        bubbles=config["sound"]["bubbles"],
+    )
     dismissal_input = DismissalInput(config["integration"]["exitOnPointerMotion"])
     raster = RasterBackdrop(config)
     raster_active = False
@@ -1188,13 +1217,29 @@ def run_audio_test(config: dict[str, Any], seconds: float) -> int:
     runtime_dir = runtime_directory()
     duration = max(1.0, min(60.0, seconds))
     volume = max(55, int(config["sound"]["volume"]))
-    audio = AmbientAudio(volume, runtime_dir, diagnostic=True)
+    water_enabled = bool(config["sound"]["water"])
+    bubbles_enabled = bool(config["sound"]["bubbles"])
+    audio = AmbientAudio(
+        volume,
+        runtime_dir,
+        diagnostic=True,
+        water=water_enabled,
+        bubbles=bubbles_enabled,
+    )
     if not audio.start():
         print(f"omarcharium audio test failed: {audio.last_error}", file=sys.stderr)
         return 3
+    if water_enabled and bubbles_enabled:
+        texture_desc = "water and bubbles"
+    elif water_enabled:
+        texture_desc = "water flow"
+    elif bubbles_enabled:
+        texture_desc = "bubbles"
+    else:
+        texture_desc = "silence (both sound channels disabled)"
     print(
         f"Omarcharium audio test active at {volume}% for {duration:g}s. "
-        "Listen for three rising tones, then water and bubbles.",
+        f"Listen for three rising tones, then {texture_desc}.",
         flush=True,
     )
     deadline = time.monotonic() + duration
