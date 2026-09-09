@@ -4,7 +4,7 @@ import copy
 import json
 import unittest
 
-from scripts.ecosystem_model import Tick, initial_model, model_from_json, model_to_json, update
+from scripts.ecosystem_model import MAX_POPULATION, SPECIES, TRAIT_BOUNDS, Tick, initial_model, model_from_json, model_to_json, update
 
 try:
     from hypothesis import given, strategies as st
@@ -61,6 +61,21 @@ else:
             for dt in timesteps:
                 update(model, Tick(dt))
             self.assertEqual(model_to_json(model), before)
+
+        @given(st.integers(), st.lists(st.floats(min_value=0, max_value=10, allow_nan=False, allow_infinity=False), max_size=16))
+        def test_traits_stay_in_species_niches_and_replay(self, seed: int, timesteps: list[float]) -> None:
+            model = initial_model(seed)
+            replay = initial_model(seed)
+            for dt in timesteps:
+                model = update(model, Tick(dt))
+                replay = update(replay, Tick(dt))
+            self.assertEqual(model, replay)
+            self.assertLessEqual(len(model.organisms), sum(MAX_POPULATION.values()))
+            for organism in model.organisms:
+                diet_bounds, aggression_bounds = TRAIT_BOUNDS[organism.species]
+                self.assertTrue(diet_bounds[0] <= organism.diet_preference <= diet_bounds[1])
+                self.assertTrue(aggression_bounds[0] <= organism.aggression <= aggression_bounds[1])
+                self.assertGreaterEqual(organism.generation, 0)
 
 
 if __name__ == "__main__":

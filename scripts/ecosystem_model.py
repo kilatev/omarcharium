@@ -54,6 +54,25 @@ RESOURCE_MEAL = 0.18
 PREDATOR_MEAL = 0.35
 FEEDING_RADIUS = 0.16
 PREDATION_RADIUS = 0.12
+MATURITY_AGE = 12
+REPRODUCTION_ENERGY = 0.72
+REPRODUCTION_COST = 0.28
+REPRODUCTION_COOLDOWN = 12
+MUTATION_RATE = 0.08
+MUTATION_STEP = 0.12
+
+# Traits remain inside these species-specific ecological niches.  Mutation can
+# move a trait within a niche, but cannot turn a herbivore into a predator.
+TRAIT_BOUNDS = {
+    "neon_tetra": ((0.70, 1.00), (0.05, 0.35)),
+    "clownfish": ((0.60, 0.95), (0.10, 0.45)),
+    "angelfish": ((0.05, 0.35), (0.55, 1.00)),
+    "discus": ((0.55, 0.90), (0.10, 0.40)),
+    "butterflyfish": ((0.10, 0.40), (0.45, 0.95)),
+    "royal_tang": ((0.75, 1.00), (0.05, 0.30)),
+    "betta": ((0.05, 0.30), (0.65, 1.00)),
+    "puffer": ((0.10, 0.45), (0.55, 1.00)),
+}
 
 
 class ModelValidationError(ValueError):
@@ -78,6 +97,9 @@ class Organism:
     energy: float
     age: int = 0
     generation: int = 0
+    diet_preference: float = 0.5
+    aggression: float = 0.5
+    reproduction_cooldown: int = 0
 
 
 @dataclass(frozen=True)
@@ -193,6 +215,8 @@ def initial_model(seed: int, settings: Mapping[str, Any] | None = None) -> Model
                     x=round(rng.random(), 6),
                     y=round(rng.random(), 6),
                     energy=round(0.7 + rng.random() * 0.3, 6),
+                    diet_preference=round(rng.uniform(*TRAIT_BOUNDS[species][0]), 6),
+                    aggression=round(rng.uniform(*TRAIT_BOUNDS[species][1]), 6),
                 )
             )
     return Model(
@@ -225,6 +249,31 @@ def _valid_dt(dt: Any) -> float:
     return value
 
 
+def _next_organism_serial(organisms: tuple[Organism, ...]) -> int:
+    serials = []
+    for organism in organisms:
+        if organism.id.startswith("organism-"):
+            try:
+                serials.append(int(organism.id.removeprefix("organism-")))
+            except ValueError:
+                pass
+    return max(serials, default=0) + 1
+
+
+def _inherit_traits(parent: Organism, mate: Organism, rng: random.Random) -> tuple[float, float]:
+    bounds = TRAIT_BOUNDS[parent.species]
+
+    def inherit(value_a: float, value_b: float, trait_bounds: tuple[float, float]) -> float:
+        value = (value_a + value_b) / 2
+        if rng.random() < MUTATION_RATE:
+            value += rng.uniform(-MUTATION_STEP, MUTATION_STEP)
+        return round(max(trait_bounds[0], min(trait_bounds[1], value)), 6)
+
+    return inherit(parent.diet_preference, mate.diet_preference, bounds[0]), inherit(
+        parent.aggression, mate.aggression, bounds[1]
+    )
+
+
 def _tick(model: Model, message: Tick) -> Model:
     dt = _valid_dt(message.dt)
     abundance = model.settings["food_abundance"]
@@ -247,6 +296,9 @@ def _tick(model: Model, message: Tick) -> Model:
             organism.energy - METABOLISM * dt,
             organism.age + (1 if dt > 0 else 0),
             organism.generation,
+            organism.diet_preference,
+            organism.aggression,
+            max(0, organism.reproduction_cooldown - (1 if dt > 0 else 0)),
         )
         for organism in sorted(model.organisms, key=lambda item: item.id)
     ]
@@ -263,14 +315,15 @@ def _tick(model: Model, message: Tick) -> Model:
         if not nearby:
             continue
         resource_index, resource = min(nearby, key=lambda pair: (pair[1].id, pair[0]))
-        meal = min(RESOURCE_MEAL * max(0.0, dt), resource.amount)
+        meal = min(RESOURCE_MEAL * organism.diet_preference * max(0.0, dt), resource.amount)
         resources[resource_index] = Resource(
             resource.id, resource.kind, resource.x, resource.y, resource.amount - meal
         )
         updated = living[index]
         living[index] = Organism(
             updated.id, updated.species, updated.x, updated.y,
-            min(1.0, updated.energy + meal), updated.age, updated.generation
+            min(1.0, updated.energy + meal), updated.age, updated.generation,
+            updated.diet_preference, updated.aggression, updated.reproduction_cooldown,
         )
 
     living_by_id = {organism.id: organism for organism in living}
@@ -282,7 +335,7 @@ def _tick(model: Model, message: Tick) -> Model:
             prey for prey in living
             if prey.id != predator.id and prey.id not in eaten
             and prey.species not in PREDATORS
-            and _distance(predator, prey) <= PREDATION_RADIUS
+            and _distance(predator, prey) <= PREDATION_RADIUS * predator.aggression
         ]
         if not candidates:
             continue
@@ -292,13 +345,56 @@ def _tick(model: Model, message: Tick) -> Model:
         meal = PREDATOR_MEAL * min(1.0, pressure)
         living_by_id[predator.id] = Organism(
             current.id, current.species, current.x, current.y,
-            min(1.0, current.energy + meal), current.age, current.generation
+            min(1.0, current.energy + meal), current.age, current.generation,
+            current.diet_preference, current.aggression, current.reproduction_cooldown,
         )
 
     organisms = tuple(
         living_by_id[organism.id] for organism in living
         if organism.id not in eaten and living_by_id[organism.id].energy > 0
     )
+    rng = random.Random()
+    rng.setstate(model.random_state)
+    next_serial = _next_organism_serial(organisms)
+    births: list[Organism] = []
+    counts = {species: sum(item.species == species for item in organisms) for species in SPECIES}
+    for parent in organisms:
+        if parent.age < MATURITY_AGE or parent.energy < REPRODUCTION_ENERGY:
+            continue
+        if parent.reproduction_cooldown > 0 or counts[parent.species] >= MAX_POPULATION[parent.species]:
+            continue
+        mate = next(
+            (candidate for candidate in organisms
+             if candidate.id != parent.id and candidate.species == parent.species
+             and candidate.age >= MATURITY_AGE and candidate.energy >= REPRODUCTION_ENERGY
+             and candidate.reproduction_cooldown == 0
+             and _distance(parent, candidate) <= FEEDING_RADIUS),
+            None,
+        )
+        if mate is None:
+            continue
+        parent_index = next(index for index, item in enumerate(organisms) if item.id == parent.id)
+        mate_index = next(index for index, item in enumerate(organisms) if item.id == mate.id)
+        parent_updated = organisms[parent_index]
+        mate_updated = organisms[mate_index]
+        # Pair once per tick: both parents pay the cost and receive a cooldown.
+        organisms = tuple(
+            Organism(item.id, item.species, item.x, item.y,
+                     item.energy - REPRODUCTION_COST if item.id in {parent.id, mate.id} else item.energy,
+                     item.age, item.generation, item.diet_preference, item.aggression,
+                     REPRODUCTION_COOLDOWN if item.id in {parent.id, mate.id} else item.reproduction_cooldown)
+            for item in organisms
+        )
+        diet, aggression = _inherit_traits(parent_updated, mate_updated, rng)
+        births.append(Organism(
+            id=f"organism-{next_serial:04d}", species=parent.species,
+            x=round((parent.x + mate.x) / 2, 6), y=round((parent.y + mate.y) / 2, 6),
+            energy=REPRODUCTION_COST, age=0, generation=max(parent.generation, mate.generation) + 1,
+            diet_preference=diet, aggression=aggression,
+        ))
+        next_serial += 1
+        counts[parent.species] += 1
+    organisms += tuple(births)
     return Model(
         model.schema_version,
         model.seed,
@@ -306,7 +402,7 @@ def _tick(model: Model, message: Tick) -> Model:
         copy.deepcopy(model.settings),
         tuple(resources),
         organisms,
-        copy.deepcopy(model.random_state),
+        rng.getstate(),
     )
 
 
@@ -383,7 +479,18 @@ def model_from_json(payload: Any) -> Model:
         species = item.get("species")
         if not isinstance(organism_id, str) or not organism_id or species not in SPECIES:
             raise ModelValidationError("organism identity is invalid")
-        organisms.append(Organism(organism_id, species, _number(item.get("x"), name="organism.x", minimum=0, maximum=1), _number(item.get("y"), name="organism.y", minimum=0, maximum=1), _number(item.get("energy"), name="organism.energy", minimum=0, maximum=1), _integer(item.get("age", 0), name="organism.age"), _integer(item.get("generation", 0), name="organism.generation")))
+        diet_preference = _number(item.get("diet_preference", item.get("dietPreference", 0.5)), name="organism.diet_preference", minimum=0, maximum=1)
+        aggression = _number(item.get("aggression", 0.5), name="organism.aggression", minimum=0, maximum=1)
+        cooldown = _integer(item.get("reproduction_cooldown", item.get("reproductionCooldown", 0)), name="organism.reproduction_cooldown")
+        organisms.append(Organism(
+            organism_id, species,
+            _number(item.get("x"), name="organism.x", minimum=0, maximum=1),
+            _number(item.get("y"), name="organism.y", minimum=0, maximum=1),
+            _number(item.get("energy"), name="organism.energy", minimum=0, maximum=1),
+            _integer(item.get("age", 0), name="organism.age"),
+            _integer(item.get("generation", 0), name="organism.generation"),
+            diet_preference, aggression, cooldown,
+        ))
 
     random_state = root.get("randomState")
     if not isinstance(random_state, list):

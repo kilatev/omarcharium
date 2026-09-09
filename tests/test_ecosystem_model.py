@@ -6,12 +6,15 @@ import unittest
 
 from scripts.ecosystem_model import (
     MODEL_SCHEMA_VERSION,
+    REPRODUCTION_COST,
+    REPRODUCTION_COOLDOWN,
     Model,
     ModelValidationError,
     Organism,
     Resource,
     Reset,
     Tick,
+    TRAIT_BOUNDS,
     initial_model,
     model_from_json,
     model_to_json,
@@ -108,6 +111,44 @@ class EcosystemModelTests(unittest.TestCase):
     def test_model_settings_do_not_include_visual_configuration(self) -> None:
         model = initial_model(3, {"palette": "coral", "species": {"puffer": 1}})
         self.assertEqual(set(model.settings), {"species", "food_abundance", "predator_pressure"})
+
+    def test_mature_pair_reproduces_with_inherited_bounded_traits(self) -> None:
+        model = self._empty_model(4)
+        parents = (
+            Organism("organism-0001", "neon_tetra", 0.5, 0.5, 0.9, 12, 2, 0.8, 0.2),
+            Organism("organism-0002", "neon_tetra", 0.5, 0.5, 0.9, 12, 3, 0.9, 0.3),
+        )
+        model = Model(model.schema_version, model.seed, model.tick, model.settings, (), parents, model.random_state)
+        next_model = update(model, Tick(1.0))
+        child = next(item for item in next_model.organisms if item.id == "organism-0003")
+        self.assertEqual(child.generation, 4)
+        self.assertEqual(child.age, 0)
+        self.assertEqual(child.energy, REPRODUCTION_COST)
+        diet_bounds, aggression_bounds = TRAIT_BOUNDS[child.species]
+        self.assertTrue(diet_bounds[0] <= child.diet_preference <= diet_bounds[1])
+        self.assertTrue(aggression_bounds[0] <= child.aggression <= aggression_bounds[1])
+        self.assertEqual({item.reproduction_cooldown for item in next_model.organisms if item.id in {"organism-0001", "organism-0002"}}, {REPRODUCTION_COOLDOWN})
+
+    def test_reproduction_is_bounded_and_cooldown_prevents_immediate_growth(self) -> None:
+        model = self._empty_model(5)
+        parents = tuple(
+            Organism(f"organism-{index:04d}", "clownfish", 0.5, 0.5, 1.0, 12, 0, 0.8, 0.2)
+            for index in (1, 2)
+        )
+        model = Model(model.schema_version, model.seed, model.tick, model.settings, (), parents, model.random_state)
+        first = update(model, Tick(1.0))
+        second = update(first, Tick(1.0))
+        self.assertEqual(len(first.organisms), 3)
+        self.assertEqual(len(second.organisms), 3)
+        self.assertLessEqual(len(second.organisms), 12)
+
+    def test_unpaired_population_can_go_extinct(self) -> None:
+        model = self._empty_model(6)
+        lone = Organism("organism-0001", "betta", 0.5, 0.5, 0.2, 0, 0, 0.1, 0.8)
+        model = Model(model.schema_version, model.seed, model.tick, model.settings, (), (lone,), model.random_state)
+        for _ in range(10):
+            model = update(model, Tick(1.0))
+        self.assertEqual(model.organisms, ())
 
 
 if __name__ == "__main__":
