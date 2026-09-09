@@ -1,8 +1,32 @@
 # Omarcharium
 
-## Ecosystem development
+## This is a deliberate, permanent fork
 
-This fork contains an ordered, agent-ready implementation plan for the autonomous ecosystem:
+This project is forked from the original Omarcharium codebase as an independent
+line of development. It will never be merged back upstream. The fork
+exists because the goal here is substantially larger than a terminal aquarium:
+I want to build a living, autonomous ecosystem for the Omarchy desktop.
+
+The finished system should feel like a small world rather than a looping
+screensaver. Fish should find food, compete, avoid predators, reproduce, inherit
+traits, mutate within bounds, and sometimes die out. That world should continue
+across monitors and restarts, remain pleasant during long idle periods, and be
+rendered consistently in the terminal and lock surfaces.
+
+The project will grow in this order:
+
+- establish a deterministic, JSON-serializable biological model;
+- add resources, feeding, predation, energy, and mortality;
+- add reproduction, inheritance, and bounded evolution;
+- keep simulation updates and rendering pure and independently testable;
+- run one shared ecosystem service for every monitor;
+- connect configuration, reset, idle, and lock behavior without taking control
+  away from Omarchy's first-party locking;
+- tune the result into a calm, resource-bounded, long-running desktop habitat.
+
+This is an ordered, agent-ready implementation plan. Read the [mission and
+roadmap](docs/ROADMAP.md) for the product direction and milestone status, and
+[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for the engineering contract:
 
 - Read [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) before changing simulation code.
 - Complete the task cards in `tasks/` order, one task per session.
