@@ -81,6 +81,15 @@ For **Custom Image**, `RasterBackdrop` canonicalizes and size-checks a local all
 Sprites contain only single-cell glyphs. A mirror translation reverses direction without maintaining duplicate left-facing art. `--seed` makes snapshots deterministic for tests and visual debugging.
 The terminal enters an alternate screen, hides the cursor, and enables SGR any-motion mouse reporting. A bounded input decoder distinguishes pointer motion from clicks and keyboard bytes, including fragmented reports. Cleanup restores every terminal mode on normal exit or signal. Accepted dismissal input closes all monitor instances through the standard Omarchy screensaver class.
 
+The terminal renderer polls the shared ecosystem service for a cached read-only
+telemetry snapshot approximately once per second. When enabled by the existing
+status-display setting, the header reports biological time, population, species,
+generation, and mutation events. The `I` key toggles a full-screen statistics
+overlay; other keyboard input, clicks, and configured pointer movement retain
+their dismissal behavior. Polling and the overlay never advance, pause, or
+persist the biological model. If the service is unavailable, the terminal keeps
+rendering its local animation and displays a bounded offline indicator.
+
 ## Multi-monitor and lock integration
 
 `scripts/launch-aquarium` follows Omarchy's first-party screensaver launch pattern:

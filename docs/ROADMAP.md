@@ -44,11 +44,14 @@ expanded.
 9. **Tuning and release** — tune calm long-running behavior, profile resource
    bounds, document the finished model, and ship it as a stable release. Core
    tuning and documentation are complete; release refinement remains optional.
+10. **Evolution telemetry** — expose biological elapsed time, species,
+    generations, births, deaths, mutation events, and ecology statistics in the
+    terminal surface. Complete.
 
 The ecosystem core, pure view, runtime service, configuration, terminal
-renderer, and lock-surface rendering are implemented. The visual work is
-complete; ongoing tuning and future visual refinement remain ordinary
-follow-up work rather than unimplemented architecture.
+renderer, evolution telemetry, and lock-surface rendering are implemented. The
+visual work is complete; ongoing tuning and future visual refinement remain
+ordinary follow-up work rather than unimplemented architecture.
 
 The detailed engineering contract and acceptance criteria live in
 [IMPLEMENTATION_PLAN.md](../IMPLEMENTATION_PLAN.md). Each milestone has a

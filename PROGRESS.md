@@ -38,3 +38,13 @@
 - Remaining: terminal service polling, compact status line, `I`/`i` statistics
   overlay, and final documentation.
 - Next action: implement the terminal telemetry adapter and statistics screen.
+
+## 2026-09-09 — Evolution telemetry goal complete
+
+- Completed: shared schema-2 evolution counters, pure ecology telemetry,
+  once-per-second terminal snapshot polling, compact status line, `I`/`i`
+  statistics overlay, offline fallback, input preservation, and documentation.
+- Validation: 91 Python tests pass; compile, shell syntax, plugin validation,
+  diff checks, and Qt Quick Test pass (one existing placeholder skipped).
+- Published: `d3b1d43e` / `feat(ecosystem): add evolution telemetry foundation`.
+- Remaining: none for the requested evolution telemetry scope.

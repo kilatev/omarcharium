@@ -26,10 +26,16 @@ changing the terminal-native fish animation or lock-screen authentication.
   the animation.
 - Lock rendering and authentication remain unchanged.
 
-## Verification
+## Completion notes
 
-The model and pure telemetry foundation is complete; terminal UI and final
-documentation remain in progress.
-
-- Focused model/view tests: 30 passed.
-- Full repository tests: 87 passed.
+- Added persistent schema-2 evolution statistics with schema-1 checkpoint
+  fallback, deterministic event accounting, and pure telemetry projection.
+- Added cached shared-service polling, a compact evolution status line, and a
+  terminal-native `I`/`i` statistics overlay without changing the local fish
+  animation or lock surface.
+- Preserved ordinary dismissal behavior for all other keyboard, click, and
+  pointer input; service failures retain a usable aquarium with `EVO OFFLINE`.
+- Documented the telemetry controls and shared-world data boundary.
+- Verification: 91 Python tests pass; Python compilation, shell syntax, plugin
+  validation, `git diff --check`, and Qt Quick Test pass. Qt Quick Test reports
+  one existing placeholder test as skipped.

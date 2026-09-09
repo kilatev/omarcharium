@@ -29,6 +29,16 @@ Each species has an independent exact population. Setting a species to zero remo
 
 The JSON key remains `showTelemetry` for configuration compatibility. It only toggles this local status display; Omarcharium does not collect or transmit usage data.
 
+During terminal immersion, the status display also shows read-only evolution
+telemetry from the shared ecosystem service: biological elapsed time, current
+population, species present, maximum generation, and mutation events. Press
+`I` or `i` to open the full-screen statistics view. The view includes per-species
+population, births, deaths, resources, and food/predator/mutation settings.
+Statistics polling occurs approximately once per second and does not pause or
+accelerate the simulation. If the service is unavailable, the aquarium remains
+usable and shows `EVO OFFLINE`; all other keyboard input still dismisses the
+terminal immersion.
+
 ## Backdrop layers
 
 | Setting | Range | Default | Effect |
