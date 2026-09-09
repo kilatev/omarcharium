@@ -28,9 +28,12 @@ suite before handoff. QML changes also require Qt Quick Test when available.
 
 ## Approval boundaries
 
-Ask before installing or upgrading dependencies, using networked shell
+Ask before installing or upgrading dependencies, using unrelated networked shell
 commands, changing system or Omarchy runtime state, synchronizing the installed
-plugin, pushing or publishing Git history, or rewriting history.
+plugin, or rewriting history. An explicit user invocation of `fukit` authorizes
+its validated, task-scoped Jujutsu description, bookmark update, push preview,
+and push; do not ask for a second confirmation once the required checks pass.
+Standalone pushes and publication outside `fukit` remain approval-gated.
 
 Never use broad destructive cleanup or reset commands. Use targeted,
 recoverable edits and preserve unrelated user changes.

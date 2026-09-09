@@ -19,6 +19,7 @@ prefix_rule(pattern=["wget"], decision="prompt", justification="Network access i
 prefix_rule(pattern=["git", "fetch"], decision="prompt", justification="Fetching changes uses the network")
 prefix_rule(pattern=["git", "pull"], decision="prompt", justification="Pulling changes uses the network and modifies the worktree")
 prefix_rule(pattern=["git", "push"], decision="prompt", justification="Pushing publishes repository state")
+prefix_rule(pattern=["jj", "git", "push"], decision="allow")
 prefix_rule(pattern=["omarchy", "restart"], decision="prompt", justification="Restarting Omarchy changes live system state")
 
 # Broad destructive operations are forbidden by default.

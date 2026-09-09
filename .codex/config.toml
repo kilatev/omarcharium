@@ -1,8 +1,9 @@
 # Project-local defaults. The project is trusted in the user's Codex config.
-# Keep network, installation, system, publication, and destructive operations
-# approval-gated through the user-level policy.
+# Keep installation, system, unrelated network, and destructive operations
+# approval-gated through the project rules and user-level policy. The explicit
+# fukit workflow is allowed to publish its validated target.
 sandbox_mode = "workspace-write"
 approval_policy = "on-request"
 
 [sandbox_workspace_write]
-network_access = false
+network_access = true
