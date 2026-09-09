@@ -11,6 +11,7 @@ import argparse
 import json
 import math
 import os
+import signal
 import socketserver
 import threading
 import time
@@ -205,6 +206,7 @@ class ServiceRuntime:
         self.lock_path = Path(lock_path)
         self._lock_file: Any = None
         self._server: _UnixServer | None = None
+        self._stop_requested = threading.Event()
 
     def __enter__(self) -> "ServiceRuntime":
         self.lock_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -231,9 +233,12 @@ class ServiceRuntime:
         if self._server is None:
             raise RuntimeError("service runtime is not started")
         self._server.timeout = 0.25
-        while True:
+        while not self._stop_requested.is_set():
             self.service.advance()
             self._server.handle_request()
+
+    def request_stop(self) -> None:
+        self._stop_requested.set()
 
     def handle_once(self) -> None:
         """Handle one IPC request; useful for embedders and focused tests."""
@@ -290,6 +295,8 @@ def main() -> int:
     service.diagnostic_accelerated = ecosystem["diagnosticAccelerated"]
     runtime = ServiceRuntime(service, args.socket or default_socket, args.lock or default_lock)
     with runtime:
+        signal.signal(signal.SIGTERM, lambda _signum, _frame: runtime.request_stop())
+        signal.signal(signal.SIGINT, lambda _signum, _frame: runtime.request_stop())
         runtime.serve_forever()
     return 0
 

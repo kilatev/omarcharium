@@ -100,6 +100,20 @@ class EcosystemServiceTests(unittest.TestCase):
                     with ServiceRuntime(EcosystemService(store), socket_path, lock_path):
                         pass
 
+    def test_requested_stop_exits_runtime_and_forces_checkpoint(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "state" / "ecosystem.json"
+            store = CheckpointStore(path, model_to_json, model_from_json, lambda: initial_model(7))
+            service = EcosystemService(store, clock=lambda: 0.0)
+            socket_path = root / "run" / "ecosystem.sock"
+            lock_path = root / "run" / "ecosystem.lock"
+            with ServiceRuntime(service, socket_path, lock_path) as runtime:
+                service.scheduler.mark_dirty()
+                runtime.request_stop()
+                runtime.serve_forever()
+            self.assertEqual(store.load(), service.model)
+
 
 if __name__ == "__main__":
     unittest.main()
