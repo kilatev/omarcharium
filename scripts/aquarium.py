@@ -33,6 +33,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
+try:
+    from scripts.ecosystem_config import normalise_ecosystem_config
+except ModuleNotFoundError:  # Direct execution from the scripts directory.
+    from ecosystem_config import normalise_ecosystem_config
+
 PLUGIN_DIR = Path(__file__).resolve().parent.parent
 DEFAULTS_PATH = PLUGIN_DIR / "defaults.json"
 SPECIES_PATH = PLUGIN_DIR / "species.json"
@@ -189,6 +194,7 @@ def normalise_config(raw: Any) -> dict[str, Any]:
     if not isinstance(integration, dict):
         integration = {}
     fallback_integration = defaults.get("integration", {})
+    ecosystem_input = incoming.get("ecosystem", defaults.get("ecosystem", {}))
     return {
         "schemaVersion": 1,
         "species": species,
@@ -242,6 +248,7 @@ def normalise_config(raw: Any) -> dict[str, Any]:
             if isinstance(integration.get("exitOnPointerMotion"), bool)
             else bool(fallback_integration.get("exitOnPointerMotion", True)),
         },
+        "ecosystem": normalise_ecosystem_config(ecosystem_input),
     }
 
 

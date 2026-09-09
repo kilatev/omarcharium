@@ -182,6 +182,7 @@ def _settings(settings: Mapping[str, Any] | None, *, normalize: bool = True) -> 
     return {
         "species": normalized_population,
         "food_abundance": _number(incoming.get("food_abundance", 1.0), name="food_abundance", minimum=0.0, maximum=2.0),
+        "mutation_rate": _number(incoming.get("mutation_rate", MUTATION_RATE), name="mutation_rate", minimum=0.0, maximum=1.0),
         "predator_pressure": _number(incoming.get("predator_pressure", 1.0), name="predator_pressure", minimum=0.0, maximum=2.0),
     }
 
@@ -260,12 +261,12 @@ def _next_organism_serial(organisms: tuple[Organism, ...]) -> int:
     return max(serials, default=0) + 1
 
 
-def _inherit_traits(parent: Organism, mate: Organism, rng: random.Random) -> tuple[float, float]:
+def _inherit_traits(parent: Organism, mate: Organism, rng: random.Random, mutation_rate: float) -> tuple[float, float]:
     bounds = TRAIT_BOUNDS[parent.species]
 
     def inherit(value_a: float, value_b: float, trait_bounds: tuple[float, float]) -> float:
         value = (value_a + value_b) / 2
-        if rng.random() < MUTATION_RATE:
+        if rng.random() < mutation_rate:
             value += rng.uniform(-MUTATION_STEP, MUTATION_STEP)
         return round(max(trait_bounds[0], min(trait_bounds[1], value)), 6)
 
@@ -385,7 +386,7 @@ def _tick(model: Model, message: Tick) -> Model:
                      REPRODUCTION_COOLDOWN if item.id in {parent.id, mate.id} else item.reproduction_cooldown)
             for item in organisms
         )
-        diet, aggression = _inherit_traits(parent_updated, mate_updated, rng)
+        diet, aggression = _inherit_traits(parent_updated, mate_updated, rng, model.settings["mutation_rate"])
         births.append(Organism(
             id=f"organism-{next_serial:04d}", species=parent.species,
             x=round((parent.x + mate.x) / 2, 6), y=round((parent.y + mate.y) / 2, 6),

@@ -19,7 +19,12 @@ Item {
     art: { palette: "lagoon", bubbleDensity: 55, current: 1.0, showTelemetry: true, reefDensity: 50 },
     backdrop: { source: "plain", imagePath: "", fitMode: "cover", dimming: 45, effectsEnabled: false, effectIntensity: 55 },
     sound: { enabled: false, volume: 24, water: true, bubbles: true },
-    integration: { idleEnabled: true, exitOnPointerMotion: true }
+    integration: { idleEnabled: true, exitOnPointerMotion: true },
+    ecosystem: {
+      enabled: true, simulationSpeed: 1.0, startingSeed: 7,
+      foodAbundance: 1.0, mutationRate: 0.08, predatorPressure: 1.0,
+      diagnosticAccelerated: false
+    }
   })
   property var speciesDefinitions: [
     { key: "neon_tetra", name: "Neon tetra", callSign: "NEON//SHOAL", description: "electric schooling streaks", accent: "#45f3ff", max: 20 },
@@ -108,6 +113,14 @@ Item {
     var integration = incoming.integration && typeof incoming.integration === "object" ? incoming.integration : ({})
     next.integration.idleEnabled = integration.idleEnabled === undefined ? defaults.integration.idleEnabled : !!integration.idleEnabled
     next.integration.exitOnPointerMotion = typeof integration.exitOnPointerMotion === "boolean" ? integration.exitOnPointerMotion : defaults.integration.exitOnPointerMotion
+    var ecosystem = incoming.ecosystem && typeof incoming.ecosystem === "object" ? incoming.ecosystem : ({})
+    next.ecosystem.enabled = ecosystem.enabled === undefined ? defaults.ecosystem.enabled : !!ecosystem.enabled
+    next.ecosystem.simulationSpeed = Math.round(clamp(ecosystem.simulationSpeed, 0.1, 4.0, defaults.ecosystem.simulationSpeed) * 100) / 100
+    next.ecosystem.startingSeed = Math.round(clamp(ecosystem.startingSeed, -2147483648, 2147483647, defaults.ecosystem.startingSeed))
+    next.ecosystem.foodAbundance = Math.round(clamp(ecosystem.foodAbundance, 0, 2, defaults.ecosystem.foodAbundance) * 10000) / 10000
+    next.ecosystem.mutationRate = Math.round(clamp(ecosystem.mutationRate, 0, 1, defaults.ecosystem.mutationRate) * 10000) / 10000
+    next.ecosystem.predatorPressure = Math.round(clamp(ecosystem.predatorPressure, 0, 2, defaults.ecosystem.predatorPressure) * 10000) / 10000
+    next.ecosystem.diagnosticAccelerated = ecosystem.diagnosticAccelerated === undefined ? defaults.ecosystem.diagnosticAccelerated : !!ecosystem.diagnosticAccelerated
     return next
   }
 
@@ -195,6 +208,42 @@ Item {
     next.integration[key] = !!value
     config = normalise(next)
     persist()
+  }
+
+  function changeEcosystem(key, value) {
+    var next = clone(config)
+    next.ecosystem[key] = value
+    config = normalise(next)
+    persist()
+    syncEcosystem()
+  }
+
+  function resetEcosystem() {
+    var next = clone(config)
+    next.ecosystem = clone(defaults.ecosystem)
+    config = normalise(next)
+    persist()
+    if (pluginDir) Quickshell.execDetached(["python3", pluginDir + "/scripts/ecosystem_client.py", "reset", "--seed", String(config.ecosystem.startingSeed), "--settings", JSON.stringify({
+      enabled: config.ecosystem.enabled,
+      simulation_speed: config.ecosystem.simulationSpeed,
+      food_abundance: config.ecosystem.foodAbundance,
+      mutation_rate: config.ecosystem.mutationRate,
+      predator_pressure: config.ecosystem.predatorPressure,
+      diagnostic_accelerated: config.ecosystem.diagnosticAccelerated
+    })])
+    statusLine = "ECOSYSTEM RESET REQUESTED"
+  }
+
+  function syncEcosystem() {
+    if (!pluginDir || !config.ecosystem) return
+    var ecosystem = clone(config.ecosystem)
+    ecosystem.simulation_speed = ecosystem.simulationSpeed
+    ecosystem.starting_seed = ecosystem.startingSeed
+    ecosystem.food_abundance = ecosystem.foodAbundance
+    ecosystem.mutation_rate = ecosystem.mutationRate
+    ecosystem.predator_pressure = ecosystem.predatorPressure
+    ecosystem.diagnostic_accelerated = ecosystem.diagnosticAccelerated
+    Quickshell.execDetached(["python3", pluginDir + "/scripts/ecosystem_client.py", "settings", "--settings", JSON.stringify(ecosystem)])
   }
 
   function restoreDefaults() {

@@ -49,8 +49,16 @@ class EcosystemServiceTests(unittest.TestCase):
         service.handle_request({"operation": "settings", "settings": {"food_abundance": 1.5}})
         self.assertEqual(service.model.settings["food_abundance"], 1.5)
         self.assertEqual(len(store.writes), 2)
+        service.handle_request({"operation": "settings", "settings": {
+            "enabled": False, "simulation_speed": 4.0, "mutation_rate": 0.25,
+            "diagnostic_accelerated": True,
+        }})
+        self.assertFalse(service.simulation_enabled)
+        self.assertEqual(service.simulation_speed, 4.0)
+        self.assertTrue(service.diagnostic_accelerated)
+        self.assertEqual(service.model.settings["mutation_rate"], 0.25)
         self.assertTrue(service.handle_request({"operation": "save"})["saved"])
-        self.assertEqual(len(store.writes), 3)
+        self.assertEqual(len(store.writes), 4)
 
         for request in (None, {"operation": "unknown"}, {"operation": "reset", "seed": True}):
             with self.assertRaises(ServiceProtocolError):

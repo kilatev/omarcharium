@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import socketserver
 import threading
@@ -23,6 +24,10 @@ try:
 except ModuleNotFoundError:  # Direct execution from the scripts directory.
     from ecosystem_checkpoint import CheckpointScheduler, CheckpointStore
     from ecosystem_model import Model, Reset, Tick, initial_model, model_from_json, model_to_json, update
+try:
+    from scripts.ecosystem_config import model_settings, normalise_ecosystem_config
+except ModuleNotFoundError:  # Direct execution from the scripts directory.
+    from ecosystem_config import model_settings, normalise_ecosystem_config
 
 
 MAX_REQUEST_BYTES = 64 * 1024
@@ -51,6 +56,9 @@ class EcosystemService:
         self.scheduler = CheckpointScheduler(store)
         self.tick_interval = float(tick_interval)
         self.clock = clock
+        self.simulation_enabled = True
+        self.simulation_speed = 1.0
+        self.diagnostic_accelerated = False
         self.model = store.load()
         if not isinstance(self.model, Model):
             self.model = initial_model(seed, settings)
@@ -71,14 +79,19 @@ class EcosystemService:
             if self._last_tick_at is None:
                 self._last_tick_at = current
                 return 0
-            elapsed = current - self._last_tick_at
-            if elapsed < self.tick_interval:
+            if not self.simulation_enabled:
+                self._last_tick_at = current
                 return 0
-            count = int(elapsed // self.tick_interval)
+            elapsed = current - self._last_tick_at
+            multiplier = self.simulation_speed * (10.0 if self.diagnostic_accelerated else 1.0)
+            effective_interval = self.tick_interval / multiplier
+            if elapsed < effective_interval:
+                return 0
+            count = int(elapsed // effective_interval)
             for _ in range(count):
                 self.model = update(self.model, Tick(self.tick_interval))
                 self.scheduler.mark_dirty()
-            self._last_tick_at += count * self.tick_interval
+            self._last_tick_at += count * effective_interval
             self.scheduler.maybe_checkpoint(self.model, current)
             return count
 
@@ -102,7 +115,20 @@ class EcosystemService:
             raise ServiceProtocolError("settings must be an object")
         with self._lock:
             merged = dict(self.model.settings)
-            merged.update(settings)
+            biological = {
+                key: settings[key] for key in ("food_abundance", "mutation_rate", "predator_pressure")
+                if key in settings
+            }
+            merged.update(biological)
+            if "enabled" in settings:
+                self.simulation_enabled = settings["enabled"] is True
+            if "simulation_speed" in settings:
+                speed = float(settings["simulation_speed"])
+                if not math.isfinite(speed) or speed <= 0:
+                    raise ServiceProtocolError("simulation_speed must be positive")
+                self.simulation_speed = min(4.0, speed)
+            if "diagnostic_accelerated" in settings:
+                self.diagnostic_accelerated = settings["diagnostic_accelerated"] is True
             replacement = initial_model(self.model.seed, merged)
             # A settings change must not reset biological state or PRNG history.
             self.model = Model(
@@ -134,7 +160,11 @@ class EcosystemService:
             population = request.get("starting_population")
             if population is not None and not isinstance(population, dict):
                 raise ServiceProtocolError("starting_population must be an object")
-            return {"ok": True, "snapshot": self.reset(seed, population)}
+            response = self.reset(seed, population)
+            settings = request.get("settings")
+            if settings is not None:
+                response = self.set_simulation_settings(settings)
+            return {"ok": True, "snapshot": response}
         if operation == "settings":
             return {"ok": True, "snapshot": self.set_simulation_settings(request.get("settings", {}))}
         if operation == "save":
@@ -241,11 +271,24 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=7)
     args = parser.parse_args()
     default_socket, default_lock = _default_paths()
+    config_path = Path(os.environ.get("OMARCHARIUM_CONFIG", Path.home() / ".config/omarcharium/config.json"))
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, RecursionError):
+        config = {}
+    ecosystem = normalise_ecosystem_config(config.get("ecosystem", {}) if isinstance(config, dict) else {})
+    if not isinstance(config, dict) or "ecosystem" not in config:
+        ecosystem["startingSeed"] = args.seed
     store = CheckpointStore(
         Path(os.environ.get("OMARCHARIUM_STATE", Path.home() / ".local/state/omarcharium/ecosystem.json")),
-        model_to_json, model_from_json, lambda: initial_model(args.seed),
+        model_to_json, model_from_json,
+        lambda: initial_model(ecosystem["startingSeed"], model_settings({"ecosystem": ecosystem})),
     )
-    runtime = ServiceRuntime(EcosystemService(store, seed=args.seed), args.socket or default_socket, args.lock or default_lock)
+    service = EcosystemService(store, seed=ecosystem["startingSeed"], settings=model_settings({"ecosystem": ecosystem}))
+    service.simulation_enabled = ecosystem["enabled"]
+    service.simulation_speed = ecosystem["simulationSpeed"]
+    service.diagnostic_accelerated = ecosystem["diagnosticAccelerated"]
+    runtime = ServiceRuntime(service, args.socket or default_socket, args.lock or default_lock)
     with runtime:
         runtime.serve_forever()
     return 0

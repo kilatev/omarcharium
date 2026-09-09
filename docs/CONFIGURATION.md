@@ -68,6 +68,26 @@ The test does not require a TTY. It plays three rising tones and then the config
 
 Disable automatic immersion to keep tray and manual launching while restoring the stock visualizer behavior.
 
+## Ecosystem controls
+
+The `ecosystem` section contains simulation-only controls. Values are normalized
+before persistence and do not alter art, backdrop, sound, or integration settings.
+
+| Setting | Range | Default | Meaning |
+|---|---:|---:|---|
+| `enabled` | On/off | On | Whether biological simulation updates run |
+| `simulationSpeed` | 0.1–4.0× | 1.0× | Fixed-tick rate multiplier |
+| `startingSeed` | signed 32-bit integer | 7 | Seed used by an explicit ecosystem reset |
+| `foodAbundance` | 0–2.0× | 1.0× | Resource regeneration abundance |
+| `mutationRate` | 0–1.0 | 0.08 | Probability of bounded trait mutation |
+| `predatorPressure` | 0–2.0× | 1.0× | Predator feeding pressure |
+| `diagnosticAccelerated` | On/off | Off | Enables intentionally accelerated simulation diagnostics |
+
+Changing a control updates configuration only. **Reset ecosystem** is an explicit
+service operation: it creates a new valid biological model from `startingSeed`
+while preserving visual and audio configuration. The service remains the only
+writer of biological state.
+
 ## Surface control
 
 **Exit on pointer movement** defaults to on, matching the original screensaver behavior. Disable it to move the pointer without surfacing; mouse clicks and keyboard input always dismiss every monitor instance.
@@ -111,6 +131,15 @@ Disable automatic immersion to keep tray and manual launching while restoring th
   "integration": {
     "idleEnabled": true,
     "exitOnPointerMotion": true
+  },
+  "ecosystem": {
+    "enabled": true,
+    "simulationSpeed": 1.0,
+    "startingSeed": 7,
+    "foodAbundance": 1.0,
+    "mutationRate": 0.08,
+    "predatorPressure": 1.0,
+    "diagnosticAccelerated": false
   }
 }
 ```
