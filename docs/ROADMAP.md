@@ -30,19 +30,20 @@ expanded.
 2. **Model and JSON state** — define stable entities, schema validation,
    deterministic initialization, and restart-safe random state. Complete.
 3. **Pure food chain** — add resources, feeding, predation, energy, and death
-   as deterministic state transitions.
+   as deterministic state transitions. Complete.
 4. **Reproduction and mutation** — add inheritance, bounded traits, and
-   generational evolution.
+   generational evolution. Complete.
 5. **Pure view** — project model snapshots into render data without advancing
    or mutating the simulation.
 6. **Runtime service** — run one shared world, expose read-only snapshots, and
-   persist coalesced checkpoints.
+   persist coalesced checkpoints. Complete.
 7. **Configuration and reset** — expose ecosystem controls while preserving
-   the existing visual/audio configuration contract.
+   the existing visual/audio configuration contract. Complete.
 8. **Lock integration** — render the same shared world on the lock surface
    without allowing lock input to change ecosystem state.
 9. **Tuning and release** — tune calm long-running behavior, profile resource
-   bounds, document the finished model, and ship it as a stable release.
+   bounds, document the finished model, and ship it as a stable release. The
+   non-visual portion is complete.
 
 The non-visual portions of runtime, configuration, and tuning are implemented.
 Pure view and lock-surface rendering remain intentionally pending until visual
