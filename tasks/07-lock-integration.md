@@ -15,3 +15,12 @@ Make lock-screen rendering consume shared read-only snapshots.
 ## Acceptance criteria
 
 Existing lock design selection and password authentication remain functional.
+
+## Completion notes
+
+- Replaced the per-monitor standalone renderer with read-only requests to the
+  shared ecosystem service and the pure `ecosystem_view` projection.
+- Added a bounded empty-frame fallback for service failure; lock input remains
+  owned by Lock Explorer and display blanking still pauses frame requests.
+- Updated the lock canvas to render resources and organisms from shared frame
+  data, preserving the password field and selector integration.

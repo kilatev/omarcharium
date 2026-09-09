@@ -11,3 +11,17 @@
 - Remaining: connect lock rendering to shared service snapshots and verify lock
   input, blanking, and renderer-failure behavior.
 - Next action: implement and test task 07 lock-surface integration.
+
+## 2026-09-09 — Shared lock rendering milestone complete
+
+- Completed: lock rendering now consumes read-only snapshots from the single
+  ecosystem service through the pure view projection; Canvas draws resources
+  and organisms; custom image backdrops, password input, pointer wake, and
+  blanking behavior remain supported; service failure has an empty safe frame.
+- Validation: 84 tests pass; Qt Quick Test passes (2 passed, 1 pre-existing
+  skipped); Python compile, shell syntax, plugin validation, and `git diff
+  --check` pass. `qmllint` exits successfully with only known external-type
+  warnings.
+- Remaining: publish this lock milestone, then perform the final visual-scope
+  completion audit and documentation/status cleanup.
+- Next action: run fukit review, commit, and push task 07.

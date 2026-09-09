@@ -16,10 +16,10 @@ DesignBase {
     Rectangle { anchors.fill: parent; color: lock.frameData ? lock.frameData.background : "#061219" }
     Image {
         anchors.fill: parent
-        source: lock.frameData && lock.frameData.backdrop.source === "image"
+        source: lock.frameData && lock.frameData.backdrop && lock.frameData.backdrop.source === "image"
             ? "file://" + lock.frameData.backdrop.imagePath.split("/").map(encodeURIComponent).join("/") : ""
-        fillMode: lock.frameData && lock.frameData.backdrop.fitMode === "contain" ? Image.PreserveAspectFit : Image.PreserveAspectCrop
-        opacity: lock.frameData ? 1 - lock.frameData.backdrop.dimming / 100 : 1
+        fillMode: lock.frameData && lock.frameData.backdrop && lock.frameData.backdrop.fitMode === "contain" ? Image.PreserveAspectFit : Image.PreserveAspectCrop
+        opacity: lock.frameData && lock.frameData.backdrop ? 1 - lock.frameData.backdrop.dimming / 100 : 1
         asynchronous: true
     }
     Process {
@@ -57,15 +57,35 @@ DesignBase {
             var f = lock.frameData
             if (!f) return
             var cw = width / f.width, ch = height / f.height
-            var size = Math.min(ch * 0.88, cw / 0.61)
-            ctx.font = size + "px monospace"
-            ctx.textBaseline = "top"
-            for (var i = 0; i < f.runs.length; ++i) {
-                var r = f.runs[i]
-                ctx.fillStyle = r[2]
-                // Draw cells individually to preserve terminal-grid positioning.
-                for (var j = 0; j < r[3].length; ++j)
-                    ctx.fillText(r[3][j], (r[0] + j) * cw, r[1] * ch)
+            var scale = Math.min(cw, ch)
+            for (var i = 0; i < f.resources.length; ++i) {
+                var resource = f.resources[i]
+                ctx.fillStyle = "#4de39a"
+                ctx.globalAlpha = 0.18 + resource.amount * 0.4
+                ctx.beginPath()
+                ctx.arc(resource.x * cw, resource.y * ch, resource.radius * scale, 0, Math.PI * 2)
+                ctx.fill()
+            }
+            ctx.globalAlpha = 1
+            for (var j = 0; j < f.organisms.length; ++j) {
+                var fish = f.organisms[j]
+                var x = fish.x * cw, y = fish.y * ch
+                var fishWidth = Math.max(scale * 1.4, fish.width * scale * 2.2)
+                var fishHeight = Math.max(scale * 0.8, fish.height * scale * 1.2)
+                ctx.fillStyle = fish.colour
+                ctx.beginPath()
+                ctx.ellipse(x, y, fishWidth, fishHeight, 0, 0, Math.PI * 2)
+                ctx.fill()
+                ctx.beginPath()
+                ctx.moveTo(x - fish.direction * fishWidth, y)
+                ctx.lineTo(x - fish.direction * fishWidth * 1.7, y - fishHeight * 0.85)
+                ctx.lineTo(x - fish.direction * fishWidth * 1.7, y + fishHeight * 0.85)
+                ctx.closePath()
+                ctx.fill()
+                ctx.fillStyle = "#07131a"
+                ctx.beginPath()
+                ctx.arc(x + fish.direction * fishWidth * 0.45, y - fishHeight * 0.18, Math.max(1.5, scale * 0.09), 0, Math.PI * 2)
+                ctx.fill()
             }
         }
     }
