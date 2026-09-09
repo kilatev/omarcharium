@@ -7,6 +7,7 @@ configuration remains owned by ``Config.qml`` and is not accepted here.
 from __future__ import annotations
 
 import copy
+import math
 import random
 from dataclasses import dataclass
 from collections.abc import Mapping
@@ -45,6 +46,15 @@ MAX_POPULATION = {
     "puffer": 10,
 }
 
+HERBIVORES = frozenset(("neon_tetra", "clownfish", "discus", "royal_tang"))
+PREDATORS = frozenset(("angelfish", "butterflyfish", "betta", "puffer"))
+RESOURCE_REGENERATION = 0.08
+METABOLISM = 0.035
+RESOURCE_MEAL = 0.18
+PREDATOR_MEAL = 0.35
+FEEDING_RADIUS = 0.16
+PREDATION_RADIUS = 0.12
+
 
 class ModelValidationError(ValueError):
     """Raised when persisted biological state is not a valid model."""
@@ -79,6 +89,21 @@ class Model:
     resources: tuple[Resource, ...]
     organisms: tuple[Organism, ...]
     random_state: tuple[Any, ...]
+
+
+@dataclass(frozen=True)
+class Tick:
+    """Advance the biological model by a non-negative number of seconds."""
+
+    dt: float
+
+
+@dataclass(frozen=True)
+class Reset:
+    """Create a new deterministic world without changing visual configuration."""
+
+    seed: int
+    starting_population: Mapping[str, int] | None = None
 
 
 def _json_value(value: Any) -> Any:
@@ -181,6 +206,127 @@ def initial_model(seed: int, settings: Mapping[str, Any] | None = None) -> Model
     )
 
 
+def _distance(left: Organism, right: Organism | Resource) -> float:
+    """Return toroidal distance, matching the normalized aquarium coordinates."""
+
+    dx = abs(left.x - right.x)
+    dy = abs(left.y - right.y)
+    dx = min(dx, 1.0 - dx)
+    dy = min(dy, 1.0 - dy)
+    return math.hypot(dx, dy)
+
+
+def _valid_dt(dt: Any) -> float:
+    if isinstance(dt, bool) or not isinstance(dt, (int, float)):
+        raise ValueError("Tick.dt must be a number")
+    value = float(dt)
+    if not math.isfinite(value) or value < 0:
+        raise ValueError("Tick.dt must be finite and non-negative")
+    return value
+
+
+def _tick(model: Model, message: Tick) -> Model:
+    dt = _valid_dt(message.dt)
+    abundance = model.settings["food_abundance"]
+    pressure = model.settings["predator_pressure"]
+    resources = [
+        Resource(resource.id, resource.kind, resource.x, resource.y,
+                 min(1.0, resource.amount + RESOURCE_REGENERATION * abundance * dt))
+        for resource in model.resources
+    ]
+
+    # Metabolism happens before feeding, so a fish cannot survive indefinitely
+    # on a depleted resource.  Processing in stable ID order makes collisions
+    # deterministic and independent of container identity.
+    living = [
+        Organism(
+            organism.id,
+            organism.species,
+            organism.x,
+            organism.y,
+            organism.energy - METABOLISM * dt,
+            organism.age + (1 if dt > 0 else 0),
+            organism.generation,
+        )
+        for organism in sorted(model.organisms, key=lambda item: item.id)
+    ]
+    living = [organism for organism in living if organism.energy > 0]
+
+    for index, organism in enumerate(living):
+        if organism.species not in HERBIVORES:
+            continue
+        nearby = [
+            (resource_index, resource)
+            for resource_index, resource in enumerate(resources)
+            if resource.amount > 0 and _distance(organism, resource) <= FEEDING_RADIUS
+        ]
+        if not nearby:
+            continue
+        resource_index, resource = min(nearby, key=lambda pair: (pair[1].id, pair[0]))
+        meal = min(RESOURCE_MEAL * max(0.0, dt), resource.amount)
+        resources[resource_index] = Resource(
+            resource.id, resource.kind, resource.x, resource.y, resource.amount - meal
+        )
+        updated = living[index]
+        living[index] = Organism(
+            updated.id, updated.species, updated.x, updated.y,
+            min(1.0, updated.energy + meal), updated.age, updated.generation
+        )
+
+    living_by_id = {organism.id: organism for organism in living}
+    eaten: set[str] = set()
+    for predator in sorted(living, key=lambda item: item.id):
+        if predator.species not in PREDATORS or pressure <= 0:
+            continue
+        candidates = [
+            prey for prey in living
+            if prey.id != predator.id and prey.id not in eaten
+            and prey.species not in PREDATORS
+            and _distance(predator, prey) <= PREDATION_RADIUS
+        ]
+        if not candidates:
+            continue
+        prey = min(candidates, key=lambda item: item.id)
+        eaten.add(prey.id)
+        current = living_by_id[predator.id]
+        meal = PREDATOR_MEAL * min(1.0, pressure)
+        living_by_id[predator.id] = Organism(
+            current.id, current.species, current.x, current.y,
+            min(1.0, current.energy + meal), current.age, current.generation
+        )
+
+    organisms = tuple(
+        living_by_id[organism.id] for organism in living
+        if organism.id not in eaten and living_by_id[organism.id].energy > 0
+    )
+    return Model(
+        model.schema_version,
+        model.seed,
+        model.tick + 1,
+        copy.deepcopy(model.settings),
+        tuple(resources),
+        organisms,
+        copy.deepcopy(model.random_state),
+    )
+
+
+def update(model: Model, message: Tick | Reset) -> Model:
+    """Apply one pure biological message and return a new model."""
+
+    if not isinstance(model, Model):
+        raise TypeError("model must be a Model")
+    if isinstance(message, Tick):
+        return _tick(model, message)
+    if isinstance(message, Reset):
+        if isinstance(message.seed, bool) or not isinstance(message.seed, int):
+            raise ValueError("Reset.seed must be an integer")
+        settings = copy.deepcopy(model.settings)
+        if message.starting_population is not None:
+            settings["species"] = copy.deepcopy(dict(message.starting_population))
+        return initial_model(message.seed, settings)
+    raise TypeError("message must be Tick or Reset")
+
+
 def model_to_json(model: Model) -> dict[str, Any]:
     """Return a fresh JSON-compatible payload for ``model``."""
 
@@ -264,7 +410,10 @@ __all__ = [
     "ModelValidationError",
     "Organism",
     "Resource",
+    "Reset",
+    "Tick",
     "initial_model",
     "model_from_json",
     "model_to_json",
+    "update",
 ]
