@@ -41,6 +41,12 @@ and writes compact JSON checkpoints, while `CheckpointScheduler` coalesces dirty
 updates. Normal checkpoints occur no more than once every five minutes; reset,
 simulation-setting changes, explicit saves, and clean shutdown force a checkpoint.
 
+The default service cadence is one fixed biological minute every 60 wall-clock
+seconds. Maturity is 720 biological minutes (12 hours) and reproduction cooldown
+is 240 biological minutes (4 hours). The optional diagnostic acceleration multiplies
+the cadence by 10; normal operation therefore remains suitable for hours- or
+days-long unattended sessions.
+
 `scripts/ecosystem_service.py` owns the process boundary. It advances fixed-size
 ticks from monotonic elapsed time, serves newline-delimited JSON requests over a
 mode-`0600` Unix socket, and uses a private non-blocking lock so only one service

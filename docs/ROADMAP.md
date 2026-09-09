@@ -44,6 +44,10 @@ expanded.
 9. **Tuning and release** — tune calm long-running behavior, profile resource
    bounds, document the finished model, and ship it as a stable release.
 
+The non-visual portions of runtime, configuration, and tuning are implemented.
+Pure view and lock-surface rendering remain intentionally pending until visual
+work is approved.
+
 The detailed engineering contract and acceptance criteria live in
 [IMPLEMENTATION_PLAN.md](../IMPLEMENTATION_PLAN.md). Each milestone has a
 corresponding card under [`tasks/`](../tasks/).

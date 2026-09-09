@@ -6,8 +6,10 @@ import unittest
 
 from scripts.ecosystem_model import (
     MODEL_SCHEMA_VERSION,
+    MAX_POPULATION,
     REPRODUCTION_COST,
     REPRODUCTION_COOLDOWN,
+    MATURITY_AGE,
     Model,
     ModelValidationError,
     Organism,
@@ -35,12 +37,12 @@ class EcosystemModelTests(unittest.TestCase):
 
     def test_tick_consumes_resource_and_metabolizes_fish(self) -> None:
         model = self._empty_model(1)
-        model = Model(model.schema_version, model.seed, model.tick, model.settings,
-                      (Resource("food", "seaweed", 0.5, 0.5, 0.5),),
+        model = Model(model.schema_version, model.seed, model.tick, dict(model.settings, food_abundance=0.0),
+                      (Resource("food", "seaweed", 0.5, 0.5, 1.0),),
                       (Organism("fish", "neon_tetra", 0.5, 0.5, 0.5),), model.random_state)
         next_model = update(model, Tick(1.0))
-        self.assertLess(next_model.resources[0].amount, 0.5)
-        self.assertGreater(next_model.organisms[0].energy, 0.5 - 0.035)
+        self.assertLess(next_model.resources[0].amount, 1.0)
+        self.assertGreater(next_model.organisms[0].energy, 0.5 - 0.005)
 
     def test_tick_predation_and_starvation_are_bounded(self) -> None:
         model = self._empty_model(2)
@@ -115,8 +117,8 @@ class EcosystemModelTests(unittest.TestCase):
     def test_mature_pair_reproduces_with_inherited_bounded_traits(self) -> None:
         model = self._empty_model(4)
         parents = (
-            Organism("organism-0001", "neon_tetra", 0.5, 0.5, 0.9, 12, 2, 0.8, 0.2),
-            Organism("organism-0002", "neon_tetra", 0.5, 0.5, 0.9, 12, 3, 0.9, 0.3),
+            Organism("organism-0001", "neon_tetra", 0.5, 0.5, 0.9, MATURITY_AGE, 2, 0.8, 0.2),
+            Organism("organism-0002", "neon_tetra", 0.5, 0.5, 0.9, MATURITY_AGE, 3, 0.9, 0.3),
         )
         model = Model(model.schema_version, model.seed, model.tick, model.settings, (), parents, model.random_state)
         next_model = update(model, Tick(1.0))
@@ -132,7 +134,7 @@ class EcosystemModelTests(unittest.TestCase):
     def test_reproduction_is_bounded_and_cooldown_prevents_immediate_growth(self) -> None:
         model = self._empty_model(5)
         parents = tuple(
-            Organism(f"organism-{index:04d}", "clownfish", 0.5, 0.5, 1.0, 12, 0, 0.8, 0.2)
+            Organism(f"organism-{index:04d}", "clownfish", 0.5, 0.5, 1.0, MATURITY_AGE, 0, 0.8, 0.2)
             for index in (1, 2)
         )
         model = Model(model.schema_version, model.seed, model.tick, model.settings, (), parents, model.random_state)
@@ -146,9 +148,21 @@ class EcosystemModelTests(unittest.TestCase):
         model = self._empty_model(6)
         lone = Organism("organism-0001", "betta", 0.5, 0.5, 0.2, 0, 0, 0.1, 0.8)
         model = Model(model.schema_version, model.seed, model.tick, model.settings, (), (lone,), model.random_state)
-        for _ in range(10):
+        for _ in range(50):
             model = update(model, Tick(1.0))
         self.assertEqual(model.organisms, ())
+
+    def test_two_thousand_biological_minutes_remain_calm_and_observable(self) -> None:
+        model = initial_model(7)
+        initial_ids = {organism.id for organism in model.organisms}
+        for _ in range(2000):
+            model = update(model, Tick(1.0))
+        self.assertNotEqual(model.organisms, ())
+        self.assertTrue(any(organism.generation > 0 for organism in model.organisms))
+        self.assertTrue(any(organism.id not in initial_ids for organism in model.organisms))
+        self.assertTrue(any(organism.id not in {item.id for item in model.organisms} for organism in initial_model(7).organisms))
+        for species in MAX_POPULATION:
+            self.assertLessEqual(sum(item.species == species for item in model.organisms), MAX_POPULATION[species])
 
 
 if __name__ == "__main__":

@@ -88,6 +88,11 @@ service operation: it creates a new valid biological model from `startingSeed`
 while preserving visual and audio configuration. The service remains the only
 writer of biological state.
 
+Normal simulation time advances in one biological minute per wall-clock minute.
+This keeps maturity and reproduction on an hours-scale cadence. Diagnostic
+acceleration is intentionally available for verification and demonstrations, not
+as the normal screensaver setting.
+
 ## Surface control
 
 **Exit on pointer movement** defaults to on, matching the original screensaver behavior. Disable it to move the pointer without surfacing; mouse clicks and keyboard input always dismiss every monitor instance.

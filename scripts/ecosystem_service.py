@@ -31,7 +31,7 @@ except ModuleNotFoundError:  # Direct execution from the scripts directory.
 
 
 MAX_REQUEST_BYTES = 64 * 1024
-DEFAULT_TICK_INTERVAL = 1.0
+DEFAULT_TICK_INTERVAL = 60.0
 
 
 class ServiceProtocolError(ValueError):
@@ -89,7 +89,7 @@ class EcosystemService:
                 return 0
             count = int(elapsed // effective_interval)
             for _ in range(count):
-                self.model = update(self.model, Tick(self.tick_interval))
+                self.model = update(self.model, Tick(1.0))
                 self.scheduler.mark_dirty()
             self._last_tick_at += count * effective_interval
             self.scheduler.maybe_checkpoint(self.model, current)

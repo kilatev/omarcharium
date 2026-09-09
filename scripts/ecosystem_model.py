@@ -48,16 +48,16 @@ MAX_POPULATION = {
 
 HERBIVORES = frozenset(("neon_tetra", "clownfish", "discus", "royal_tang"))
 PREDATORS = frozenset(("angelfish", "butterflyfish", "betta", "puffer"))
-RESOURCE_REGENERATION = 0.08
-METABOLISM = 0.035
-RESOURCE_MEAL = 0.18
-PREDATOR_MEAL = 0.35
+RESOURCE_REGENERATION = 0.20
+METABOLISM = 0.005
+RESOURCE_MEAL = 0.02
+PREDATOR_MEAL = 0.10
 FEEDING_RADIUS = 0.16
 PREDATION_RADIUS = 0.12
-MATURITY_AGE = 12
+MATURITY_AGE = 720  # biological minutes; twelve hours at the default pace
 REPRODUCTION_ENERGY = 0.72
 REPRODUCTION_COST = 0.28
-REPRODUCTION_COOLDOWN = 12
+REPRODUCTION_COOLDOWN = 240  # four biological hours
 MUTATION_RATE = 0.08
 MUTATION_STEP = 0.12
 
@@ -295,11 +295,11 @@ def _tick(model: Model, message: Tick) -> Model:
             organism.x,
             organism.y,
             organism.energy - METABOLISM * dt,
-            organism.age + (1 if dt > 0 else 0),
+            organism.age + max(1, int(dt)) if dt > 0 else organism.age,
             organism.generation,
             organism.diet_preference,
             organism.aggression,
-            max(0, organism.reproduction_cooldown - (1 if dt > 0 else 0)),
+            max(0, organism.reproduction_cooldown - max(1, int(dt))) if dt > 0 else organism.reproduction_cooldown,
         )
         for organism in sorted(model.organisms, key=lambda item: item.id)
     ]
