@@ -59,6 +59,7 @@ continues to use focused smoke and live-surface checks.
 7. `tasks/06-config-reset.md` — configuration and reset controls
 8. `tasks/07-lock-integration.md` — shared read-only lock rendering
 9. `tasks/08-tuning-release.md` — tuning, profiling, documentation
+10. `tasks/09-evolution-telemetry.md` — evolution telemetry and terminal statistics
 
 The first three feature tasks provide most of the value and should be completed before investing in service infrastructure.
 
@@ -84,3 +85,6 @@ Each implementation session must read this file, its assigned task card, the pre
   per frame, or per renderer.
 - A completed checkpoint is flushed and atomically replaced; failed writes leave
   the in-memory model dirty for retry.
+- Evolution telemetry is derived from the authoritative model and remains pure at
+  the update/view boundary; terminal statistics must not pause or mutate the
+  simulation.

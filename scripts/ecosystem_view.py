@@ -12,9 +12,9 @@ from dataclasses import dataclass
 from typing import Any
 
 try:
-    from scripts.ecosystem_model import Model, Organism
+    from scripts.ecosystem_model import Model, Organism, SPECIES
 except ModuleNotFoundError:  # Direct execution from the scripts directory.
-    from ecosystem_model import Model, Organism
+    from ecosystem_model import Model, Organism, SPECIES
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +69,33 @@ def _organism_frame(organism: Organism, viewport: Viewport, tick: int) -> dict[s
     }
 
 
+def telemetry(model: Model) -> dict[str, Any]:
+    """Project model statistics into JSON-compatible read-only telemetry."""
+
+    if not isinstance(model, Model):
+        raise TypeError("model must be a Model")
+    species_population = {
+        species: sum(organism.species == species for organism in model.organisms)
+        for species in SPECIES
+    }
+    return {
+        "biologicalMinutes": model.statistics.biological_minutes,
+        "population": len(model.organisms),
+        "speciesPresent": sum(value > 0 for value in species_population.values()),
+        "speciesTotal": len(SPECIES),
+        "speciesPopulation": species_population,
+        "resourceCount": len(model.resources),
+        "resourceAmount": round(sum(resource.amount for resource in model.resources), 6),
+        "generation": max((organism.generation for organism in model.organisms), default=0),
+        "births": model.statistics.births,
+        "deaths": model.statistics.deaths,
+        "mutationEvents": model.statistics.mutation_events,
+        "mutationRate": model.settings["mutation_rate"],
+        "foodAbundance": model.settings["food_abundance"],
+        "predatorPressure": model.settings["predator_pressure"],
+    }
+
+
 def view(model: Model, viewport: Viewport) -> dict[str, Any]:
     """Project a model into JSON-compatible render data without mutation."""
 
@@ -99,12 +126,8 @@ def view(model: Model, viewport: Viewport) -> dict[str, Any]:
         "tick": model.tick,
         "resources": resources,
         "organisms": organisms,
-        "telemetry": {
-            "population": len(organisms),
-            "resourceCount": len(resources),
-            "generation": max((item["generation"] for item in organisms), default=0),
-        },
+        "telemetry": telemetry(model),
     }
 
 
-__all__ = ["SPECIES_STYLE", "Viewport", "view"]
+__all__ = ["SPECIES_STYLE", "Viewport", "telemetry", "view"]

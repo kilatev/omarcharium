@@ -14,7 +14,8 @@ from collections.abc import Mapping
 from typing import Any
 
 
-MODEL_SCHEMA_VERSION = 1
+MODEL_SCHEMA_VERSION = 2
+LEGACY_MODEL_SCHEMA_VERSION = 1
 SPECIES = (
     "neon_tetra",
     "clownfish",
@@ -103,6 +104,14 @@ class Organism:
 
 
 @dataclass(frozen=True)
+class EvolutionStats:
+    biological_minutes: float = 0.0
+    births: int = 0
+    deaths: int = 0
+    mutation_events: int = 0
+
+
+@dataclass(frozen=True)
 class Model:
     schema_version: int
     seed: int
@@ -111,6 +120,7 @@ class Model:
     resources: tuple[Resource, ...]
     organisms: tuple[Organism, ...]
     random_state: tuple[Any, ...]
+    statistics: EvolutionStats = EvolutionStats()
 
 
 @dataclass(frozen=True)
@@ -261,17 +271,24 @@ def _next_organism_serial(organisms: tuple[Organism, ...]) -> int:
     return max(serials, default=0) + 1
 
 
-def _inherit_traits(parent: Organism, mate: Organism, rng: random.Random, mutation_rate: float) -> tuple[float, float]:
+def _inherit_traits(
+    parent: Organism, mate: Organism, rng: random.Random, mutation_rate: float,
+) -> tuple[float, float, bool]:
     bounds = TRAIT_BOUNDS[parent.species]
+    mutated = False
 
     def inherit(value_a: float, value_b: float, trait_bounds: tuple[float, float]) -> float:
+        nonlocal mutated
         value = (value_a + value_b) / 2
         if rng.random() < mutation_rate:
+            mutated = True
             value += rng.uniform(-MUTATION_STEP, MUTATION_STEP)
         return round(max(trait_bounds[0], min(trait_bounds[1], value)), 6)
 
-    return inherit(parent.diet_preference, mate.diet_preference, bounds[0]), inherit(
-        parent.aggression, mate.aggression, bounds[1]
+    return (
+        inherit(parent.diet_preference, mate.diet_preference, bounds[0]),
+        inherit(parent.aggression, mate.aggression, bounds[1]),
+        mutated,
     )
 
 
@@ -303,7 +320,9 @@ def _tick(model: Model, message: Tick) -> Model:
         )
         for organism in sorted(model.organisms, key=lambda item: item.id)
     ]
+    before_starvation = len(living)
     living = [organism for organism in living if organism.energy > 0]
+    deaths = before_starvation - len(living)
 
     for index, organism in enumerate(living):
         if organism.species not in HERBIVORES:
@@ -354,10 +373,12 @@ def _tick(model: Model, message: Tick) -> Model:
         living_by_id[organism.id] for organism in living
         if organism.id not in eaten and living_by_id[organism.id].energy > 0
     )
+    deaths += len(eaten)
     rng = random.Random()
     rng.setstate(model.random_state)
     next_serial = _next_organism_serial(organisms)
     births: list[Organism] = []
+    mutation_events = 0
     counts = {species: sum(item.species == species for item in organisms) for species in SPECIES}
     for parent in organisms:
         if parent.age < MATURITY_AGE or parent.energy < REPRODUCTION_ENERGY:
@@ -386,7 +407,10 @@ def _tick(model: Model, message: Tick) -> Model:
                      REPRODUCTION_COOLDOWN if item.id in {parent.id, mate.id} else item.reproduction_cooldown)
             for item in organisms
         )
-        diet, aggression = _inherit_traits(parent_updated, mate_updated, rng, model.settings["mutation_rate"])
+        diet, aggression, mutated = _inherit_traits(
+            parent_updated, mate_updated, rng, model.settings["mutation_rate"]
+        )
+        mutation_events += int(mutated)
         births.append(Organism(
             id=f"organism-{next_serial:04d}", species=parent.species,
             x=round((parent.x + mate.x) / 2, 6), y=round((parent.y + mate.y) / 2, 6),
@@ -396,6 +420,13 @@ def _tick(model: Model, message: Tick) -> Model:
         next_serial += 1
         counts[parent.species] += 1
     organisms += tuple(births)
+    previous_stats = model.statistics
+    statistics = EvolutionStats(
+        biological_minutes=round(previous_stats.biological_minutes + dt, 6),
+        births=previous_stats.births + len(births),
+        deaths=previous_stats.deaths + deaths,
+        mutation_events=previous_stats.mutation_events + mutation_events,
+    )
     return Model(
         model.schema_version,
         model.seed,
@@ -404,6 +435,7 @@ def _tick(model: Model, message: Tick) -> Model:
         tuple(resources),
         organisms,
         rng.getstate(),
+        statistics,
     )
 
 
@@ -436,6 +468,12 @@ def model_to_json(model: Model) -> dict[str, Any]:
         "settings": copy.deepcopy(model.settings),
         "resources": [resource.__dict__.copy() for resource in model.resources],
         "organisms": [organism.__dict__.copy() for organism in model.organisms],
+        "statistics": {
+            "biologicalMinutes": model.statistics.biological_minutes,
+            "births": model.statistics.births,
+            "deaths": model.statistics.deaths,
+            "mutationEvents": model.statistics.mutation_events,
+        },
         "randomState": _json_value(model.random_state),
     }
     return _json_value(payload)
@@ -451,7 +489,8 @@ def model_from_json(payload: Any) -> Model:
     """Validate and decode a persisted model without mutating ``payload``."""
 
     root = _object(payload, name="model")
-    if root.get("schemaVersion") != MODEL_SCHEMA_VERSION:
+    schema_version = root.get("schemaVersion")
+    if schema_version not in {LEGACY_MODEL_SCHEMA_VERSION, MODEL_SCHEMA_VERSION}:
         raise ModelValidationError("unsupported model schema version")
     seed = root.get("seed")
     tick = _integer(root.get("tick"), name="tick")
@@ -502,7 +541,23 @@ def model_from_json(payload: Any) -> Model:
         checker.setstate(state)
     except (TypeError, ValueError, IndexError):
         raise ModelValidationError("randomState is invalid") from None
-    return Model(MODEL_SCHEMA_VERSION, seed, tick, settings, tuple(resources), tuple(organisms), state)
+    raw_statistics = root.get("statistics", {})
+    if not isinstance(raw_statistics, dict):
+        raise ModelValidationError("statistics must be an object")
+    statistics = EvolutionStats(
+        biological_minutes=_number(
+            raw_statistics.get("biologicalMinutes", 0.0),
+            name="statistics.biologicalMinutes", minimum=0.0, maximum=float("inf"),
+        ),
+        births=_integer(raw_statistics.get("births", 0), name="statistics.births"),
+        deaths=_integer(raw_statistics.get("deaths", 0), name="statistics.deaths"),
+        mutation_events=_integer(
+            raw_statistics.get("mutationEvents", 0), name="statistics.mutationEvents"
+        ),
+    )
+    return Model(
+        MODEL_SCHEMA_VERSION, seed, tick, settings, tuple(resources), tuple(organisms), state, statistics
+    )
 
 
 def _restore_tuple(value: Any) -> Any:
@@ -513,6 +568,8 @@ def _restore_tuple(value: Any) -> Any:
 
 __all__ = [
     "DEFAULT_POPULATION",
+    "EvolutionStats",
+    "LEGACY_MODEL_SCHEMA_VERSION",
     "MODEL_SCHEMA_VERSION",
     "Model",
     "ModelValidationError",

@@ -35,8 +35,14 @@ from typing import Any, Iterable
 
 try:
     from scripts.ecosystem_config import normalise_ecosystem_config
+    from scripts.ecosystem_client import request as ecosystem_request
+    from scripts.ecosystem_model import model_from_json
+    from scripts.ecosystem_view import telemetry as ecosystem_telemetry
 except ModuleNotFoundError:  # Direct execution from the scripts directory.
     from ecosystem_config import normalise_ecosystem_config
+    from ecosystem_client import request as ecosystem_request
+    from ecosystem_model import model_from_json
+    from ecosystem_view import telemetry as ecosystem_telemetry
 
 PLUGIN_DIR = Path(__file__).resolve().parent.parent
 DEFAULTS_PATH = PLUGIN_DIR / "defaults.json"
@@ -142,6 +148,19 @@ def clamp_number(value: Any, low: float, high: float, fallback: float) -> float:
     if not math.isfinite(number):
         return fallback
     return max(low, min(high, number))
+
+
+def format_biological_time(minutes: float) -> str:
+    """Format biological minutes compactly for the terminal surfaces."""
+
+    total_minutes = max(0, int(minutes))
+    days, remainder = divmod(total_minutes, 24 * 60)
+    hours, mins = divmod(remainder, 60)
+    if days:
+        return f"{days}d {hours:02d}h"
+    if hours:
+        return f"{hours}h {mins:02d}m"
+    return f"{mins}m"
 
 
 def read_json(path: Path, fallback: Any) -> Any:
@@ -370,6 +389,35 @@ class FrameBuffer:
         return "".join(output)
 
 
+class EvolutionTelemetry:
+    """Poll the shared service for cached, read-only evolution telemetry."""
+
+    POLL_INTERVAL = 1.0
+    REQUEST_TIMEOUT = 0.2
+
+    def __init__(self, requester: Any = ecosystem_request) -> None:
+        self.requester = requester
+        self.data: dict[str, Any] | None = None
+        self.last_poll = float("-inf")
+        self.error = "EVO OFFLINE"
+
+    def refresh(self, now: float) -> bool:
+        if now - self.last_poll < self.POLL_INTERVAL:
+            return False
+        self.last_poll = now
+        try:
+            response = self.requester(
+                {"operation": "snapshot"}, timeout=self.REQUEST_TIMEOUT,
+            )
+            snapshot = response.get("snapshot") if isinstance(response, dict) else None
+            self.data = ecosystem_telemetry(model_from_json(snapshot))
+            self.error = ""
+        except (OSError, RuntimeError, TypeError, ValueError, KeyError):
+            self.data = None
+            self.error = "EVO OFFLINE"
+        return True
+
+
 class OceanScene:
     def __init__(self, width: int, height: int, config: dict[str, Any], seed: int) -> None:
         self.width, self.height = clamp_dimensions(width, height)
@@ -380,6 +428,8 @@ class OceanScene:
         self.fish: list[Fish] = []
         self.bubbles: list[Bubble] = []
         self.motes: list[Mote] = []
+        self.evolution_telemetry: dict[str, Any] | None = None
+        self.statistics_visible = False
         self.backdrop_shades = tuple(
             mix_rgb(self.palette["background"], self.palette["water"], 0.07 + index * 0.025)
             for index in range(8)
@@ -647,13 +697,62 @@ class OceanScene:
         canvas.text(1, 0, title[: max(0, self.width - 2)], palette["text"])
         if len(right) + 1 < self.width:
             canvas.text(self.width - len(right) - 1, 0, right, palette["caustic"])
+        evolution = self._evolution_status()
+        canvas.text(1, 1, evolution[: max(0, self.width - 2)], palette["text"])
         footer = (
-            "[ any key / click / pointer movement returns to surface ]"
+            "[ I = statistics · any other key / click / pointer movement returns to surface ]"
             if self.config["integration"]["exitOnPointerMotion"]
-            else "[ any key / click returns to surface ]"
+            else "[ I = statistics · any other key / click returns to surface ]"
         )
         if len(footer) + 2 < self.width:
             canvas.text((self.width - len(footer)) // 2, self.height - 1, footer, palette["dim"])
+
+    def _evolution_status(self) -> str:
+        data = self.evolution_telemetry
+        if not data:
+            return " EVO OFFLINE · SHARED WORLD UNAVAILABLE "
+        return (
+            f" LIFE {format_biological_time(data['biologicalMinutes'])}"
+            f" · POP {data['population']}"
+            f" · SP {data['speciesPresent']}/{data['speciesTotal']}"
+            f" · GEN {data['generation']}"
+            f" · MUT {data['mutationEvents']} "
+        )
+
+    def _draw_statistics(self, canvas: FrameBuffer) -> None:
+        palette = self.palette
+        for y in range(self.height):
+            canvas.text(0, y, " " * self.width, palette["background"])
+        data = self.evolution_telemetry
+        lines = [
+            " OMARCHARIUM // EVOLUTION TELEMETRY ",
+            "",
+        ]
+        if data:
+            lines.extend([
+                f" BIOLOGICAL TIME   {format_biological_time(data['biologicalMinutes'])}",
+                f" POPULATION        {data['population']}",
+                f" SPECIES PRESENT   {data['speciesPresent']} / {data['speciesTotal']}",
+                f" MAX GENERATION    {data['generation']}",
+                f" BIRTHS            {data['births']}",
+                f" DEATHS            {data['deaths']}",
+                f" MUTATION EVENTS   {data['mutationEvents']}",
+                "",
+                f" RESOURCES         {data['resourceCount']}"
+                f"  biomass {data['resourceAmount']:.2f}",
+                f" FOOD ABUNDANCE    {data['foodAbundance']:.2f}x",
+                f" PREDATOR PRESSURE {data['predatorPressure']:.2f}x",
+                f" MUTATION RATE     {data['mutationRate']:.0%}",
+                "",
+                " SPECIES POPULATION",
+            ])
+            for species, count in data["speciesPopulation"].items():
+                lines.append(f"   {species.replace('_', ' ').upper():<16} {count:>3}")
+        else:
+            lines.extend([" EVO OFFLINE", "", " The shared ecosystem service is unavailable."])
+        lines.extend(["", " I = close statistics · any other key exits immersion"])
+        for y, line in enumerate(lines[: self.height]):
+            canvas.text(1, y, line[: max(0, self.width - 2)], palette["text"])
 
     def _draw_backdrop_notice(self, canvas: FrameBuffer) -> None:
         if not self.backdrop_notice:
@@ -671,6 +770,8 @@ class OceanScene:
         self._draw_fish(canvas)
         self._draw_status_display(canvas)
         self._draw_backdrop_notice(canvas)
+        if self.statistics_visible:
+            self._draw_statistics(canvas)
         return canvas
 
 
@@ -1094,6 +1195,15 @@ class DismissalInput:
         return timestamp - self.pending_since >= self.pending_timeout
 
 
+def handle_terminal_input(data: bytes, scene: OceanScene, dismissal: DismissalInput, now: float) -> bool:
+    """Toggle statistics for its reserved key, otherwise classify dismissal input."""
+
+    if data in (b"i", b"I"):
+        scene.statistics_visible = not scene.statistics_visible
+        return False
+    return dismissal.feed(data, now)
+
+
 class TerminalSession:
     def __init__(self, background: RGB) -> None:
         self.background = background
@@ -1143,6 +1253,7 @@ def dismiss_screensaver_windows() -> None:
 def run_interactive(config: dict[str, Any], seed: int, sound_override: bool | None) -> int:
     width, height = terminal_size()
     scene = OceanScene(width, height, config, seed)
+    evolution = EvolutionTelemetry()
     palette = scene.palette
     runtime_dir = runtime_directory()
     sound_enabled = config["sound"]["enabled"] if sound_override is None else sound_override
@@ -1189,9 +1300,12 @@ def run_interactive(config: dict[str, Any], seed: int, sound_override: bool | No
                         user_dismissed = True
                         break
                     if now - started > 0.35 and select.select([sys.stdin], [], [], 0)[0]:
-                        if dismissal_input.feed(os.read(sys.stdin.fileno(), 4096), now):
+                        input_data = os.read(sys.stdin.fileno(), 4096)
+                        if handle_terminal_input(input_data, scene, dismissal_input, now):
                             user_dismissed = True
                             break
+                    evolution.refresh(now)
+                    scene.evolution_telemetry = evolution.data
                     new_width, new_height = terminal_size()
                     if (new_width, new_height) != (width, height):
                         width, height = new_width, new_height

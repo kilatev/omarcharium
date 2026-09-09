@@ -9,6 +9,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scripts.ecosystem_model import initial_model, model_to_json
+
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location("omarcharium_aquarium", ROOT / "scripts" / "aquarium.py")
 assert SPEC and SPEC.loader
@@ -140,6 +142,33 @@ class RendererTests(unittest.TestCase):
         self.assertTrue(all(len(line) <= 80 for line in snapshot))
         self.assertIn("Y", "\n".join(snapshot))
 
+    def test_evolution_status_and_statistics_overlay_use_shared_telemetry(self) -> None:
+        config = AQUARIUM.normalise_config({"art": {"showTelemetry": True}})
+        scene = AQUARIUM.OceanScene(100, 28, config, seed=17)
+        scene.evolution_telemetry = {
+            "biologicalMinutes": 125.0,
+            "population": 31,
+            "speciesPresent": 7,
+            "speciesTotal": 8,
+            "generation": 3,
+            "mutationEvents": 4,
+            "births": 12,
+            "deaths": 5,
+            "resourceCount": 24,
+            "resourceAmount": 18.5,
+            "foodAbundance": 1.0,
+            "predatorPressure": 1.0,
+            "mutationRate": 0.08,
+            "speciesPopulation": {"neon_tetra": 10},
+        }
+        status = scene.render().plain()
+        self.assertIn("LIFE 2h 05m", status)
+        self.assertIn("POP 31", status)
+        scene.statistics_visible = True
+        statistics = scene.render().plain()
+        self.assertIn("EVOLUTION TELEMETRY", statistics)
+        self.assertIn("MUTATION EVENTS   4", statistics)
+
     def test_scene_dimensions_are_bounded(self) -> None:
         self.assertEqual(
             AQUARIUM.clamp_dimensions(10**9, 10**9),
@@ -201,6 +230,43 @@ class RendererTests(unittest.TestCase):
         self.assertGreater(low_stalk_chars, 0)
         self.assertGreater(dense_stalk_chars, low_stalk_chars * 2)
         self.assertGreater(dense_coral_chars, low_coral_chars * 2)
+class EvolutionTelemetryTests(unittest.TestCase):
+    def test_refresh_reads_shared_snapshot_and_coalesces_polls(self) -> None:
+        calls = []
+
+        def requester(payload, timeout):
+            calls.append((payload, timeout))
+            return {"snapshot": model_to_json(initial_model(7))}
+
+        adapter = AQUARIUM.EvolutionTelemetry(requester)
+        self.assertTrue(adapter.refresh(0.0))
+        self.assertFalse(adapter.refresh(0.5))
+        self.assertTrue(adapter.refresh(1.0))
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(adapter.data["population"], 28)
+        self.assertEqual(calls[0][0], {"operation": "snapshot"})
+        self.assertEqual(calls[0][1], 0.2)
+
+    def test_refresh_falls_back_without_breaking_the_renderer(self) -> None:
+        def requester(_payload, _timeout):
+            raise OSError("service unavailable")
+
+        adapter = AQUARIUM.EvolutionTelemetry(requester)
+        self.assertTrue(adapter.refresh(0.0))
+        self.assertIsNone(adapter.data)
+        self.assertEqual(adapter.error, "EVO OFFLINE")
+
+    def test_i_toggles_statistics_but_other_input_dismisses(self) -> None:
+        config = AQUARIUM.normalise_config({"art": {"showTelemetry": False}})
+        scene = AQUARIUM.OceanScene(80, 24, config, seed=7)
+        dismissal = AQUARIUM.DismissalInput(False)
+        self.assertFalse(AQUARIUM.handle_terminal_input(b"i", scene, dismissal, 0.0))
+        self.assertTrue(scene.statistics_visible)
+        self.assertFalse(AQUARIUM.handle_terminal_input(b"I", scene, dismissal, 0.1))
+        self.assertFalse(scene.statistics_visible)
+        self.assertTrue(AQUARIUM.handle_terminal_input(b"x", scene, dismissal, 0.2))
+
+
 class RasterBackdropTests(unittest.TestCase):
     def test_source_validation_accepts_only_bounded_local_images(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

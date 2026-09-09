@@ -26,3 +26,15 @@
 - Remaining: none for the requested visual scope; future work is optional tuning
   and release refinement.
 - Next action: final verification and handoff.
+
+## 2026-09-09 — Evolution telemetry foundation milestone complete
+
+- Completed: model schema 2 now persists biological elapsed minutes, births,
+  deaths, and per-offspring mutation events; schema 1 checkpoints recover with
+  zeroed counters; pure telemetry reports species, generations, resources, and
+  ecology settings.
+- Validation: 87 Python tests pass, including focused legacy-schema, counter,
+  mutation, and telemetry coverage.
+- Remaining: terminal service polling, compact status line, `I`/`i` statistics
+  overlay, and final documentation.
+- Next action: implement the terminal telemetry adapter and statistics screen.

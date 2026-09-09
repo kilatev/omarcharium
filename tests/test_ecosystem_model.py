@@ -52,6 +52,8 @@ class EcosystemModelTests(unittest.TestCase):
         ), model.random_state)
         next_model = update(model, Tick(1.0))
         self.assertEqual([item.id for item in next_model.organisms], ["predator"])
+        self.assertEqual(next_model.statistics.deaths, 1)
+        self.assertEqual(next_model.statistics.biological_minutes, 1.0)
         self.assertLessEqual(next_model.organisms[0].energy, 1.0)
         starving = Model(
             model.schema_version, model.seed, model.tick, model.settings, (),
@@ -83,6 +85,17 @@ class EcosystemModelTests(unittest.TestCase):
         restored = model_from_json(json.loads(json.dumps(model_to_json(model))))
         self.assertEqual(restored, model)
         self.assertEqual(model_to_json(restored), model_to_json(model))
+
+    def test_legacy_schema_defaults_statistics_without_losing_state(self) -> None:
+        payload = model_to_json(initial_model(17))
+        payload["schemaVersion"] = 1
+        payload.pop("statistics")
+        restored = model_from_json(payload)
+        self.assertEqual(restored.schema_version, MODEL_SCHEMA_VERSION)
+        self.assertEqual(restored.statistics.biological_minutes, 0.0)
+        self.assertEqual(restored.statistics.births, 0)
+        self.assertEqual(restored.statistics.deaths, 0)
+        self.assertEqual(restored.statistics.mutation_events, 0)
 
     def test_serialization_and_parsing_do_not_mutate_inputs(self) -> None:
         settings = {"species": {"puffer": 3}, "food_abundance": 1.2}
@@ -130,6 +143,20 @@ class EcosystemModelTests(unittest.TestCase):
         self.assertTrue(diet_bounds[0] <= child.diet_preference <= diet_bounds[1])
         self.assertTrue(aggression_bounds[0] <= child.aggression <= aggression_bounds[1])
         self.assertEqual({item.reproduction_cooldown for item in next_model.organisms if item.id in {"organism-0001", "organism-0002"}}, {REPRODUCTION_COOLDOWN})
+
+    def test_reproduction_records_one_mutation_event_per_mutated_offspring(self) -> None:
+        model = self._empty_model(14)
+        parents = (
+            Organism("organism-0001", "neon_tetra", 0.5, 0.5, 0.9, MATURITY_AGE, 0, 0.8, 0.2),
+            Organism("organism-0002", "neon_tetra", 0.5, 0.5, 0.9, MATURITY_AGE, 0, 0.9, 0.3),
+        )
+        model = Model(
+            model.schema_version, model.seed, model.tick,
+            dict(model.settings, mutation_rate=1.0), (), parents, model.random_state,
+        )
+        next_model = update(model, Tick(1.0))
+        self.assertEqual(next_model.statistics.births, 1)
+        self.assertEqual(next_model.statistics.mutation_events, 1)
 
     def test_reproduction_is_bounded_and_cooldown_prevents_immediate_growth(self) -> None:
         model = self._empty_model(5)

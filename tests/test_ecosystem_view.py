@@ -2,7 +2,7 @@ import copy
 import unittest
 
 from scripts.ecosystem_model import Tick, initial_model, update
-from scripts.ecosystem_view import Viewport, view
+from scripts.ecosystem_view import Viewport, telemetry, view
 
 
 class EcosystemViewTests(unittest.TestCase):
@@ -27,6 +27,19 @@ class EcosystemViewTests(unittest.TestCase):
         view(model, Viewport(640, 360))
         self.assertEqual(model, before)
 
+    def test_telemetry_reports_evolution_and_ecology(self) -> None:
+        model = initial_model(7)
+        payload = telemetry(model)
+        self.assertEqual(payload["population"], len(model.organisms))
+        self.assertEqual(payload["speciesPresent"], 8)
+        self.assertEqual(payload["speciesTotal"], 8)
+        self.assertEqual(payload["generation"], 0)
+        self.assertEqual(payload["births"], 0)
+        self.assertEqual(payload["deaths"], 0)
+        self.assertEqual(payload["mutationEvents"], 0)
+        self.assertEqual(sum(payload["speciesPopulation"].values()), payload["population"])
+        self.assertGreater(payload["resourceAmount"], 0)
+
     def test_model_tick_changes_only_model_derived_motion(self) -> None:
         model = initial_model(7)
         first = view(model, Viewport(640, 360))
@@ -40,4 +53,3 @@ class EcosystemViewTests(unittest.TestCase):
             Viewport(0, 20)
         with self.assertRaises(ValueError):
             Viewport(20, -1)
-
