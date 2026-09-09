@@ -34,20 +34,21 @@ expanded.
 4. **Reproduction and mutation** — add inheritance, bounded traits, and
    generational evolution. Complete.
 5. **Pure view** — project model snapshots into render data without advancing
-   or mutating the simulation.
+   or mutating the simulation. Complete.
 6. **Runtime service** — run one shared world, expose read-only snapshots, and
    persist coalesced checkpoints. Complete.
 7. **Configuration and reset** — expose ecosystem controls while preserving
    the existing visual/audio configuration contract. Complete.
 8. **Lock integration** — render the same shared world on the lock surface
-   without allowing lock input to change ecosystem state.
+   without allowing lock input to change ecosystem state. Complete.
 9. **Tuning and release** — tune calm long-running behavior, profile resource
-   bounds, document the finished model, and ship it as a stable release. The
-   non-visual portion is complete.
+   bounds, document the finished model, and ship it as a stable release. Core
+   tuning and documentation are complete; release refinement remains optional.
 
-The non-visual portions of runtime, configuration, and tuning are implemented.
-Pure view and lock-surface rendering remain intentionally pending until visual
-work is approved.
+The ecosystem core, pure view, runtime service, configuration, terminal
+renderer, and lock-surface rendering are implemented. The visual work is
+complete; ongoing tuning and future visual refinement remain ordinary
+follow-up work rather than unimplemented architecture.
 
 The detailed engineering contract and acceptance criteria live in
 [IMPLEMENTATION_PLAN.md](../IMPLEMENTATION_PLAN.md). Each milestone has a

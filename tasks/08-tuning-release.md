@@ -23,8 +23,8 @@ Population remains bounded, changes are observable over time, extinction is poss
   pacing; diagnostic acceleration is isolated to the service adapter.
 - Added a deterministic 2,000-minute long-run test proving continued life,
   generational change, turnover, and population ceilings.
-- Documented pacing, configuration semantics, service ownership, and the remaining
-  visual/lock-surface boundary in the architecture and configuration references.
+- Documented pacing, configuration semantics, service ownership, and the visual
+  terminal/lock-surface boundary in the architecture and configuration references.
 - Profiled the long-run model locally: 2,000 ticks complete in 0.345s user time
   with 15,896 KiB peak RSS; the model stores bounded tuples/collections only.
 - Verification: full test suite passes; Python compile, shell syntax, plugin

@@ -15,7 +15,10 @@ flowchart LR
     H --> T2[Terminal monitor N]
     T1 --> Renderer[aquarium.py]
     T2 --> Renderer
-    Renderer --> Lock[$XDG_RUNTIME_DIR audio lock]
+    Service --> Eco[ecosystem_service.py]
+    Eco --> Snapshot[read-only snapshots]
+    Snapshot --> LockSurface[Lock Explorer design]
+    Renderer --> AudioLock[$XDG_RUNTIME_DIR audio lock]
     Lock --> PipeWire[pw-cat raw stereo PCM]
     H --> OmarchyIdle[First-party idle and lock service]
 ```
@@ -63,7 +66,7 @@ increase filesystem activity.
 
 ## Renderer
 
-`OceanScene` renders a fixed layer stack:
+`OceanScene` renders the terminal-native fixed layer stack:
 
 1. background source (Plain Depth, Pelagic Field, or Custom Image);
 2. optional pelagic current, scanline, and particle effects;
@@ -89,6 +92,13 @@ The terminal enters an alternate screen, hides the cursor, and enables SGR any-m
 - restores the original monitor focus.
 
 The first-party idle service still owns locking. Omarcharium uses the same configured screensaver timeout and standard window class, so Omarchy observes active screensaver windows and preserves the configured lock deadline.
+
+The lock design requests the same in-memory service snapshot as every other
+renderer and passes it through `ecosystem_view.view()`. Its Canvas draws the
+projected resources and organisms without ticking, persisting, or accepting
+authentication input. One outstanding request is allowed at a time; requests
+stop while the lock host blanks the display. A service failure produces an
+empty frame while Lock Explorer continues to own the password field.
 
 To suppress only the stock visualizer, `scripts/idle-integration` creates the existing `screensaver-off` toggle when absent and records ownership separately. It never claims an existing toggle and removes only owned state.
 

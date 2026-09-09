@@ -22,6 +22,7 @@
   skipped); Python compile, shell syntax, plugin validation, and `git diff
   --check` pass. `qmllint` exits successfully with only known external-type
   warnings.
-- Remaining: publish this lock milestone, then perform the final visual-scope
-  completion audit and documentation/status cleanup.
-- Next action: run fukit review, commit, and push task 07.
+- Published: `b6fa10ca` / `feat(lock): render the shared ecosystem snapshot`.
+- Remaining: none for the requested visual scope; future work is optional tuning
+  and release refinement.
+- Next action: final verification and handoff.
