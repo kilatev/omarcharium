@@ -29,3 +29,17 @@ the public service boundary without exercising inherited renderer code.
 Performance tests verify that tick frequency, frame rate, and renderer count do not
 increase checkpoint writes, and that snapshot requests do not read the checkpoint
 file.
+
+## Completion notes
+
+- Added `scripts.ecosystem_service.py` as the authoritative in-memory service
+  around the pure model and checkpoint adapters.
+- Added fixed-interval monotonic ticking, restart recovery, forced reset/settings/
+  save checkpoints, private newline-delimited Unix-socket snapshots, malformed
+  request recovery, and a non-blocking single-writer lock.
+- Started the service from the always-loaded Quickshell service entry point without
+  changing renderer behavior.
+- Added service tests for checkpoint coalescing, restart recovery, read-only memory
+  snapshots, protocol safety, socket permissions, and writer exclusivity.
+- Verification: 65 tests pass, including Hypothesis properties; Python compile,
+  shell syntax, plugin validation, and `git diff --check` pass.

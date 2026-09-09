@@ -15,6 +15,7 @@ Item {
   readonly property string pluginDir: manifest && manifest.__sourceDir
     ? String(manifest.__sourceDir) : ""
   readonly property string launcherPath: pluginDir + "/scripts/launch-aquarium"
+  readonly property string ecosystemServicePath: pluginDir + "/scripts/ecosystem_service.py"
   readonly property string integrationPath: pluginDir + "/scripts/idle-integration"
   readonly property var idleConfig: shell && shell.shellConfig && shell.shellConfig.idle
     ? shell.shellConfig.idle : ({})
@@ -75,6 +76,16 @@ Item {
     onLoaded: root.loadConfig(text())
     onFileChanged: reload()
     onLoadFailed: root.loadConfig("{}")
+  }
+
+  Process {
+    id: ecosystemService
+    command: ["python3", "-u", root.ecosystemServicePath]
+    running: root.configLoaded && root.pluginDir !== ""
+    onExited: function(exitCode) {
+      if (exitCode !== 0)
+        console.warn("Omarcharium ecosystem service exited: " + exitCode)
+    }
   }
 
   IdleMonitor {

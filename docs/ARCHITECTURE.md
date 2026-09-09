@@ -41,6 +41,14 @@ and writes compact JSON checkpoints, while `CheckpointScheduler` coalesces dirty
 updates. Normal checkpoints occur no more than once every five minutes; reset,
 simulation-setting changes, explicit saves, and clean shutdown force a checkpoint.
 
+`scripts/ecosystem_service.py` owns the process boundary. It advances fixed-size
+ticks from monotonic elapsed time, serves newline-delimited JSON requests over a
+mode-`0600` Unix socket, and uses a private non-blocking lock so only one service
+can own the world. `snapshot` responses are encoded directly from the in-memory
+model; `reset`, `settings`, and `save` are the only mutating protocol operations.
+Malformed requests receive a bounded JSON error response and cannot reach the
+model transition seam.
+
 Checkpoint writes are bounded, flushed, and atomically replaced from a temporary
 file in the same private directory. A failed write raises to the service and leaves
 the dirty flag set for retry. Renderers receive read-only in-memory snapshots over
