@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "vetalik.lock-selector",
+  "name": "Lock Screen Selector",
+  "version": "1.0.1",
+  "author": "vetalik",
+  "description": "Theme-style carousel with live previews and click-to-apply lock screens. Requires Lock Screen Explorer.",
+  "kinds": [
+    "overlay"
+  ],
+  "entryPoints": {
+    "overlay": "LockPicker.qml"
+  }
+}

@@ -1,5 +1,17 @@
 # Omarcharium
 
+## Ecosystem development
+
+This fork contains an ordered, agent-ready implementation plan for the autonomous ecosystem:
+
+- Read [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) before changing simulation code.
+- Complete the task cards in `tasks/` order, one task per session.
+- Keep biological behavior in a pure `Model + Message -> Model` update loop.
+- Keep rendering as a pure `Model + Viewport -> Frame` projection.
+- Run `python3 -m unittest discover -s tests -v` before handing work to the next session.
+
+The lock-screen and selector additions live under `integrations/`.
+
 [![Release](https://img.shields.io/github/v/release/DailenG/omarcharium?sort=semver&style=flat-square)](https://github.com/DailenG/omarcharium/releases/latest)
 [![CI](https://img.shields.io/github/actions/workflow/status/DailenG/omarcharium/ci.yml?branch=main&style=flat-square&label=tests)](https://github.com/DailenG/omarcharium/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-63e9e2?style=flat-square)](LICENSE)

@@ -11,6 +11,7 @@ git clone <repository-url>
 cd omarcharium
 omarchy plugin validate .
 python3 -m unittest discover -s tests -v
+python3 -m pip install -r requirements-dev.txt
 bash -n scripts/launch-aquarium scripts/idle-integration scripts/select-backdrop
 ```
 
@@ -69,7 +70,11 @@ omarchy-shell shell rescanPlugins
 Before opening a pull request:
 
 ```sh
+python3 -m pip install -r requirements-dev.txt
 python3 -m unittest discover -s tests -v
+python3 -m unittest discover -s tests/property -v
+env -u WAYLAND_DISPLAY -u QT_QPA_PLATFORMTHEME QT_QPA_PLATFORM=offscreen \
+  /usr/lib/qt6/bin/qmltestrunner -input tests/qml
 python3 scripts/aquarium.py --snapshot --width 100 --height 30 --seed 7 >/dev/null
 python3 scripts/aquarium.py --check-config >/dev/null
 bash -n scripts/launch-aquarium scripts/idle-integration scripts/select-backdrop
@@ -78,6 +83,12 @@ omarchy plugin validate .
 ```
 
 `qmllint` currently emits Quickshell metadata warnings for `PanelWindow` and `QProcess::ExitStatus`; warnings are acceptable when it exits successfully and the live surface is verified. New warnings are not.
+
+Property-based tests belong only in the fork-owned ecosystem seams. Do not add
+Hypothesis coverage by changing inherited renderer or integration code. New QML
+property tests must target Quickshell-free helpers so they can run under the stock
+Qt Quick Test runner. When a property test fails, include Hypothesis' minimized
+example and reproduction seed in the change description.
 
 ## Pull requests
 

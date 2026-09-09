@@ -35,6 +35,18 @@ flowchart LR
 
 The Python renderer independently normalizes the same public configuration contract. A malformed or partially written user file therefore falls back safely without preventing the screensaver from opening.
 
+The ecosystem service keeps its authoritative model in memory. `scripts/ecosystem_checkpoint.py`
+provides the persistence seam: `CheckpointStore` loads a validated model at startup
+and writes compact JSON checkpoints, while `CheckpointScheduler` coalesces dirty
+updates. Normal checkpoints occur no more than once every five minutes; reset,
+simulation-setting changes, explicit saves, and clean shutdown force a checkpoint.
+
+Checkpoint writes are bounded, flushed, and atomically replaced from a temporary
+file in the same private directory. A failed write raises to the service and leaves
+the dirty flag set for retry. Renderers receive read-only in-memory snapshots over
+IPC and never read the checkpoint file, so monitor count and frame rate do not
+increase filesystem activity.
+
 ## Renderer
 
 `OceanScene` renders a fixed layer stack:
@@ -79,6 +91,7 @@ The synthesis provides independently toggled continuous water motion and sparse 
 | Selected backdrop image | Local read-only allowlisted input; 32 MiB and 24 megapixel limits |
 | `~/.cache/omarcharium/` | Private derived backdrop PNGs, global no-follow cache lock, 16-file/128 MiB ceiling |
 | `~/.local/state/omarcharium/` | Private matched toggle ownership marker |
+| `~/.local/state/omarcharium/ecosystem.json` | Compact, atomically replaced ecosystem recovery checkpoint; written at most every five minutes except forced saves |
 | `$XDG_RUNTIME_DIR/omarcharium/audio.lock` | Private no-follow ephemeral audio leadership lock |
 | `/usr/share/omarchy/` | Read-only terminal defaults; never modified |
 | Network | No runtime requests; a fixed bug-report URL opens only after user action |

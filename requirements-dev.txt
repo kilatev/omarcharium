@@ -1,0 +1,2 @@
+# Test-only dependencies. The plugin runtime remains dependency-free.
+hypothesis>=6.100,<7
