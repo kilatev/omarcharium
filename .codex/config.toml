@@ -1,0 +1,8 @@
+# Project-local defaults. The project is trusted in the user's Codex config.
+# Keep network, installation, system, publication, and destructive operations
+# approval-gated through the user-level policy.
+sandbox_mode = "workspace-write"
+approval_policy = "on-request"
+
+[sandbox_workspace_write]
+network_access = false

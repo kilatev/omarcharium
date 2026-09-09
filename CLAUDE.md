@@ -55,6 +55,16 @@ git diff --check
 
 For QML changes, load the actual plugin through Omarchy, inspect shell logs for QML errors, and exercise the affected tray or overlay interaction. For renderer changes, run the actual aquarium in a supported terminal.
 
+## Agent permissions
+
+- Treat repository-local inspection, edits, tests, compilation checks, shell
+  syntax checks, and `omarchy plugin validate .` as routine development work.
+- Ask before dependency installation or upgrades, networked shell commands,
+  installed-plugin synchronization, `omarchy restart shell`, system changes,
+  Git publication, or history rewriting.
+- Do not use broad destructive cleanup or reset commands. Never modify
+  `/usr/share/omarchy/`.
+
 ## Releases
 
 - One completed issue per patch release.
