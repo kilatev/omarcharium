@@ -37,12 +37,12 @@ try:
     from scripts.ecosystem_config import normalise_ecosystem_config
     from scripts.ecosystem_client import request as ecosystem_request
     from scripts.ecosystem_model import model_from_json
-    from scripts.ecosystem_view import telemetry as ecosystem_telemetry
+    from scripts.ecosystem_view import Viewport, view as ecosystem_view, telemetry as ecosystem_telemetry
 except ModuleNotFoundError:  # Direct execution from the scripts directory.
     from ecosystem_config import normalise_ecosystem_config
     from ecosystem_client import request as ecosystem_request
     from ecosystem_model import model_from_json
-    from ecosystem_view import telemetry as ecosystem_telemetry
+    from ecosystem_view import Viewport, view as ecosystem_view, telemetry as ecosystem_telemetry
 
 PLUGIN_DIR = Path(__file__).resolve().parent.parent
 DEFAULTS_PATH = PLUGIN_DIR / "defaults.json"
@@ -392,12 +392,13 @@ class FrameBuffer:
 class EvolutionTelemetry:
     """Poll the shared service for cached, read-only evolution telemetry."""
 
-    POLL_INTERVAL = 1.0
-    REQUEST_TIMEOUT = 0.2
+    POLL_INTERVAL = 0.1
+    REQUEST_TIMEOUT = 0.02
 
     def __init__(self, requester: Any = ecosystem_request) -> None:
         self.requester = requester
         self.data: dict[str, Any] | None = None
+        self.model = None
         self.last_poll = float("-inf")
         self.error = "EVO OFFLINE"
 
@@ -410,7 +411,8 @@ class EvolutionTelemetry:
                 {"operation": "snapshot"}, timeout=self.REQUEST_TIMEOUT,
             )
             snapshot = response.get("snapshot") if isinstance(response, dict) else None
-            self.data = ecosystem_telemetry(model_from_json(snapshot))
+            self.model = model_from_json(snapshot)
+            self.data = ecosystem_telemetry(self.model)
             self.error = ""
         except (OSError, RuntimeError, TypeError, ValueError, KeyError):
             self.data = None
@@ -430,6 +432,8 @@ class OceanScene:
         self.motes: list[Mote] = []
         self.evolution_telemetry: dict[str, Any] | None = None
         self.statistics_visible = False
+        self.shared_model = None
+        self.shared_world = False
         self.backdrop_shades = tuple(
             mix_rgb(self.palette["background"], self.palette["water"], 0.07 + index * 0.025)
             for index in range(8)
@@ -508,7 +512,7 @@ class OceanScene:
         self.elapsed += dt
         self.frame += 1
         current = self.config["art"]["current"]
-        for fish in self.fish:
+        for fish in (() if self.shared_world else self.fish):
             fish.x += fish.direction * fish.speed * current * dt
             sprite_width = max(map(len, SPRITES[fish.species][0]))
             if fish.direction > 0 and fish.x > self.width + sprite_width:
@@ -667,6 +671,9 @@ class OceanScene:
                 canvas.put(int(bubble.x) - 1, int(bubble.y), "·", palette["water"])
 
     def _draw_fish(self, canvas: FrameBuffer) -> None:
+        if self.shared_world:
+            self._draw_shared_world(canvas)
+            return
         for fish in sorted(self.fish, key=lambda item: item.base_y):
             frame_index = int(self.elapsed * (2.2 + fish.speed * 0.08) + fish.frame_phase) & 1
             lines = SPRITES[fish.species][frame_index]
@@ -687,11 +694,35 @@ class OceanScene:
                         colour = body
                     canvas.put(x + column, y + row, char, colour)
 
+    def shared_frame(self) -> dict[str, Any] | None:
+        return ecosystem_view(self.shared_model, Viewport(self.width, self.height)) if self.shared_model else None
+
+    def _draw_shared_world(self, canvas: FrameBuffer) -> None:
+        frame = self.shared_frame()
+        if frame is None:
+            return
+        for shelter in frame["shelters"]:
+            x, y = round(shelter["x"]), round(shelter["y"])
+            canvas.text(x - 2, y - 1, "\\|/", self.palette["coral"])
+            canvas.text(x - 2, y, "(_Y_)", self.palette["rock"])
+        for fish in sorted(frame["organisms"], key=lambda item: item["y"]):
+            lines = SPRITES[fish["species"]][int(frame["seconds"] * 3) & 1]
+            if fish["direction"] < 0:
+                lines = mirror_sprite(lines)
+            body, accent, shadow = FISH_COLOURS[fish["species"]]
+            x = round(fish["x"] - max(map(len, lines)) / 2)
+            y = round(fish["y"] - len(lines) / 2)
+            for row, line in enumerate(lines):
+                for column, char in enumerate(line):
+                    if char != " ":
+                        colour = accent if char in "oO@#=|" else shadow if char in "_.'~-" else body
+                        canvas.put(x + column, y + row, char, colour)
+
     def _draw_status_display(self, canvas: FrameBuffer) -> None:
         if not self.config["art"]["showTelemetry"]:
             return
         palette = self.palette
-        fish_count = len(self.fish)
+        fish_count = len(self.shared_model.organisms) if self.shared_model else (0 if self.shared_world else len(self.fish))
         title = " OMARCHARIUM // PELAGIC TERMINAL ENVIRONMENT "
         right = f" BIOMASS {fish_count:02d} // {self.config['art']['palette'].upper()} "
         canvas.text(1, 0, title[: max(0, self.width - 2)], palette["text"])
@@ -1253,6 +1284,7 @@ def dismiss_screensaver_windows() -> None:
 def run_interactive(config: dict[str, Any], seed: int, sound_override: bool | None) -> int:
     width, height = terminal_size()
     scene = OceanScene(width, height, config, seed)
+    scene.shared_world = True
     evolution = EvolutionTelemetry()
     palette = scene.palette
     runtime_dir = runtime_directory()
@@ -1306,6 +1338,7 @@ def run_interactive(config: dict[str, Any], seed: int, sound_override: bool | No
                             break
                     evolution.refresh(now)
                     scene.evolution_telemetry = evolution.data
+                    scene.shared_model = evolution.model
                     new_width, new_height = terminal_size()
                     if (new_width, new_height) != (width, height):
                         width, height = new_width, new_height

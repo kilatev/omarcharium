@@ -50,16 +50,16 @@ def _phase(identifier: str) -> float:
 
 def _organism_frame(organism: Organism, viewport: Viewport, tick: int) -> dict[str, Any]:
     style = SPECIES_STYLE[organism.species]
-    phase = _phase(organism.id)
-    # A tick is biological time owned by the model; it is not wall-clock time.
-    direction = 1 if int((phase * 17) + tick // 8) % 2 == 0 else -1
-    bob = ((phase + tick / 37.0) % 1.0 - 0.5) * 0.018
+    direction = 1 if organism.vx >= 0 else -1
     return {
         "id": organism.id,
         "species": organism.species,
         "kind": style["glyph"],
         "x": round(organism.x * viewport.width, 4),
-        "y": round(max(0.0, min(1.0, organism.y + bob)) * viewport.height, 4),
+        "y": round(organism.y * viewport.height, 4),
+        "vx": organism.vx,
+        "vy": organism.vy,
+        "behavior": organism.behavior,
         "width": round(style["size"] * (0.7 + organism.energy * 0.3), 4),
         "height": round(style["size"] * (0.7 + organism.energy * 0.3), 4),
         "direction": direction,
@@ -124,6 +124,10 @@ def view(model: Model, viewport: Viewport) -> dict[str, Any]:
         "width": viewport.width,
         "height": viewport.height,
         "tick": model.tick,
+        "seconds": model.world_time.seconds,
+        "scene": model.world_time.scene,
+        "shelters": [{"id": item.id, "x": item.x * viewport.width,
+                      "y": item.y * viewport.height} for item in model.shelters],
         "resources": resources,
         "organisms": organisms,
         "telemetry": telemetry(model),

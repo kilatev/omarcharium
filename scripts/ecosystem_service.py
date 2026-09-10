@@ -15,16 +15,17 @@ import signal
 import socketserver
 import threading
 import time
+from dataclasses import replace
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
 try:
     from scripts.ecosystem_checkpoint import CheckpointScheduler, CheckpointStore
-    from scripts.ecosystem_model import Model, Reset, Tick, initial_model, model_from_json, model_to_json, update
+    from scripts.ecosystem_model import Advance, Model, Reset, initial_model, model_from_json, model_to_json, update
 except ModuleNotFoundError:  # Direct execution from the scripts directory.
     from ecosystem_checkpoint import CheckpointScheduler, CheckpointStore
-    from ecosystem_model import Model, Reset, Tick, initial_model, model_from_json, model_to_json, update
+    from ecosystem_model import Advance, Model, Reset, initial_model, model_from_json, model_to_json, update
 try:
     from scripts.ecosystem_config import model_settings, normalise_ecosystem_config
 except ModuleNotFoundError:  # Direct execution from the scripts directory.
@@ -51,7 +52,7 @@ class EcosystemService:
         tick_interval: float = DEFAULT_TICK_INTERVAL,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
-        if tick_interval <= 0:
+        if not math.isfinite(tick_interval) or tick_interval <= 0:
             raise ValueError("tick_interval must be positive")
         self.store = store
         self.scheduler = CheckpointScheduler(store)
@@ -73,7 +74,7 @@ class EcosystemService:
             self._last_tick_at = self.clock() if now is None else float(now)
 
     def advance(self, now: float | None = None) -> int:
-        """Apply elapsed fixed-size ticks and return the number of ticks applied."""
+        """Advance active time and return completed motion steps (ten per second)."""
 
         with self._lock:
             current = self.clock() if now is None else float(now)
@@ -85,14 +86,13 @@ class EcosystemService:
                 return 0
             elapsed = current - self._last_tick_at
             multiplier = self.simulation_speed * (10.0 if self.diagnostic_accelerated else 1.0)
-            effective_interval = self.tick_interval / multiplier
-            if elapsed < effective_interval:
+            if elapsed <= 0:
                 return 0
-            count = int(elapsed // effective_interval)
-            for _ in range(count):
-                self.model = update(self.model, Tick(1.0))
-                self.scheduler.mark_dirty()
-            self._last_tick_at += count * effective_interval
+            previous = self.model.world_time.seconds
+            self.model = update(self.model, Advance(elapsed * multiplier * 60 / self.tick_interval))
+            self._last_tick_at = current
+            count = round((self.model.world_time.seconds - previous) * 10)
+            self.scheduler.mark_dirty()
             self.scheduler.maybe_checkpoint(self.model, current)
             return count
 
@@ -105,6 +105,7 @@ class EcosystemService:
     def reset(self, seed: int, starting_population: Mapping[str, int] | None = None) -> dict[str, Any]:
         with self._lock:
             self.model = update(self.model, Reset(seed, starting_population))
+            self._last_tick_at = self.clock()
             self.scheduler.mark_dirty()
             self.scheduler.maybe_checkpoint(self.model, self.clock(), force=True)
             return self.snapshot()
@@ -121,22 +122,21 @@ class EcosystemService:
                 if key in settings
             }
             merged.update(biological)
-            if "enabled" in settings:
-                self.simulation_enabled = settings["enabled"] is True
+            enabled = settings.get("enabled", self.simulation_enabled) is True
+            speed = self.simulation_speed
             if "simulation_speed" in settings:
                 speed = float(settings["simulation_speed"])
                 if not math.isfinite(speed) or speed <= 0:
                     raise ServiceProtocolError("simulation_speed must be positive")
-                self.simulation_speed = min(4.0, speed)
-            if "diagnostic_accelerated" in settings:
-                self.diagnostic_accelerated = settings["diagnostic_accelerated"] is True
+                speed = min(4.0, speed)
+            accelerated = settings.get("diagnostic_accelerated", self.diagnostic_accelerated) is True
             replacement = initial_model(self.model.seed, merged)
+            self.simulation_enabled = enabled
+            self.simulation_speed = speed
+            self.diagnostic_accelerated = accelerated
             # A settings change must not reset biological state or PRNG history.
-            self.model = Model(
-                self.model.schema_version, self.model.seed, self.model.tick,
-                replacement.settings, self.model.resources, self.model.organisms,
-                self.model.random_state,
-            )
+            self.model = replace(self.model, settings=replacement.settings)
+            self._last_tick_at = self.clock()
             self.scheduler.mark_dirty()
             self.scheduler.maybe_checkpoint(self.model, self.clock(), force=True)
             return self.snapshot()
@@ -232,7 +232,7 @@ class ServiceRuntime:
     def serve_forever(self) -> None:
         if self._server is None:
             raise RuntimeError("service runtime is not started")
-        self._server.timeout = 0.25
+        self._server.timeout = 0.05
         while not self._stop_requested.is_set():
             self.service.advance()
             self._server.handle_request()

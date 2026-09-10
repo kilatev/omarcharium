@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "FrameGeometry.js" as Geometry
 import "../plugins/io.github.sirjul1337.lock-explorer/designs"
 
 DesignBase {
@@ -43,7 +44,7 @@ DesignBase {
         renderer.write(JSON.stringify([columns, rows]) + "\n")
     }
     Timer {
-        interval: 42
+        interval: 100
         repeat: true
         running: renderer.running
         onTriggered: lock.requestFrame()
@@ -58,6 +59,16 @@ DesignBase {
             if (!f) return
             var cw = width / f.width, ch = height / f.height
             var scale = Math.min(cw, ch)
+            var shelters = f.shelters || []
+            for (var s = 0; s < shelters.length; ++s) {
+                var shelter = shelters[s]
+                ctx.fillStyle = "#4de39a"
+                ctx.fillRect(shelter.x * cw - scale * 0.2, shelter.y * ch - scale * 2, scale * 0.4, scale * 2)
+                ctx.fillStyle = "#667c86"
+                ctx.beginPath()
+                ctx.ellipse(shelter.x * cw, shelter.y * ch, scale * 2, scale, 0, 0, Math.PI * 2)
+                ctx.fill()
+            }
             for (var i = 0; i < f.resources.length; ++i) {
                 var resource = f.resources[i]
                 ctx.fillStyle = "#4de39a"
@@ -69,7 +80,8 @@ DesignBase {
             ctx.globalAlpha = 1
             for (var j = 0; j < f.organisms.length; ++j) {
                 var fish = f.organisms[j]
-                var x = fish.x * cw, y = fish.y * ch
+                var position = Geometry.point(fish, f, width, height)
+                var x = position.x, y = position.y
                 var fishWidth = Math.max(scale * 1.4, fish.width * scale * 2.2)
                 var fishHeight = Math.max(scale * 0.8, fish.height * scale * 1.2)
                 ctx.fillStyle = fish.colour

@@ -240,12 +240,12 @@ class EvolutionTelemetryTests(unittest.TestCase):
 
         adapter = AQUARIUM.EvolutionTelemetry(requester)
         self.assertTrue(adapter.refresh(0.0))
-        self.assertFalse(adapter.refresh(0.5))
-        self.assertTrue(adapter.refresh(1.0))
+        self.assertFalse(adapter.refresh(0.05))
+        self.assertTrue(adapter.refresh(0.1))
         self.assertEqual(len(calls), 2)
         self.assertEqual(adapter.data["population"], 28)
         self.assertEqual(calls[0][0], {"operation": "snapshot"})
-        self.assertEqual(calls[0][1], 0.2)
+        self.assertEqual(calls[0][1], 0.02)
 
     def test_refresh_falls_back_without_breaking_the_renderer(self) -> None:
         def requester(_payload, _timeout):

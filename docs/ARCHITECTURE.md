@@ -88,7 +88,28 @@ generation, and mutation events. The `I` key toggles a full-screen statistics
 overlay; other keyboard input, clicks, and configured pointer movement retain
 their dismissal behavior. Polling and the overlay never advance, pause, or
 persist the biological model. If the service is unavailable, the terminal keeps
-rendering its local animation and displays a bounded offline indicator.
+the last shared fish snapshot and displays a bounded offline indicator. Before
+the first successful snapshot it draws only the environment. The standalone
+`--snapshot` command retains the inherited deterministic decorative preview.
+
+### Shared movement clock
+
+Schema 3 adds organism velocity, behavior, target and recovery state, shared
+shelters, and a serializable scene clock. Schema 1/2 saves migrate without
+replacing organisms or telemetry. `Advance(seconds)` runs pure 0.1-second
+movement steps; every 60 active seconds runs one biological-minute `Tick`.
+Speed controls scale both clocks together. A single call accepts at most five
+active seconds, discarding older elapsed time after suspend; restart starts a
+fresh wall-clock anchor and preserves the checkpoint's fractional accumulator.
+The service polls independently of clients, with a 50 ms idle wait. Renderers
+request snapshots at most ten times per second and never advance the world.
+One major scene can own the model's event slot; completion starts 30 seconds
+of quiet time. Rejected opportunities are never queued.
+
+The terminal maps shared positions to the centers of existing species sprites.
+The lock projects the same positions and headings into Canvas geometry. Shared
+shelters are drawn at model coordinates on both surfaces. Fish frames are held
+between snapshots, including when the service becomes unavailable.
 
 ## Multi-monitor and lock integration
 
@@ -107,7 +128,8 @@ renderer and passes it through `ecosystem_view.view()`. Its Canvas draws the
 projected resources and organisms without ticking, persisting, or accepting
 authentication input. One outstanding request is allowed at a time; requests
 stop while the lock host blanks the display. A service failure produces an
-empty frame while Lock Explorer continues to own the password field.
+held last frame (or an empty initial frame) while Lock Explorer continues to own
+the password field.
 
 To suppress only the stock visualizer, `scripts/idle-integration` creates the existing `screensaver-off` toggle when absent and records ownership separately. It never claims an existing toggle and removes only owned state.
 

@@ -9,12 +9,12 @@ from __future__ import annotations
 import copy
 import math
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from collections.abc import Mapping
 from typing import Any
 
 
-MODEL_SCHEMA_VERSION = 2
+MODEL_SCHEMA_VERSION = 3
 LEGACY_MODEL_SCHEMA_VERSION = 1
 SPECIES = (
     "neon_tetra",
@@ -101,6 +101,31 @@ class Organism:
     diet_preference: float = 0.5
     aggression: float = 0.5
     reproduction_cooldown: int = 0
+    vx: float = 0.018
+    vy: float = 0.0
+    behavior: str = "cruise"
+    target: str = ""
+    cooldown: float = 0.0
+
+
+@dataclass(frozen=True)
+class WorldTime:
+    seconds: float = 0.0
+    remainder: float = 0.0
+    biology_remainder: float = 0.0
+    scene: str = ""
+    scene_remaining: float = 0.0
+    quiet_remaining: float = 30.0
+
+
+@dataclass(frozen=True)
+class Shelter:
+    id: str
+    x: float
+    y: float
+
+
+DEFAULT_SHELTERS = (Shelter("reef-left", 0.18, 0.82), Shelter("reef-right", 0.78, 0.82))
 
 
 @dataclass(frozen=True)
@@ -121,6 +146,15 @@ class Model:
     organisms: tuple[Organism, ...]
     random_state: tuple[Any, ...]
     statistics: EvolutionStats = EvolutionStats()
+    world_time: WorldTime = WorldTime()
+    shelters: tuple[Shelter, ...] = DEFAULT_SHELTERS
+
+
+@dataclass(frozen=True)
+class Advance:
+    """Advance active world seconds; one biological minute takes sixty seconds."""
+
+    seconds: float
 
 
 @dataclass(frozen=True)
@@ -374,7 +408,7 @@ def _tick(model: Model, message: Tick) -> Model:
         if organism.id not in eaten and living_by_id[organism.id].energy > 0
     )
     deaths += len(eaten)
-    rng = random.Random()
+    rng = random.Random(0)
     rng.setstate(model.random_state)
     next_serial = _next_organism_serial(organisms)
     births: list[Organism] = []
@@ -427,23 +461,28 @@ def _tick(model: Model, message: Tick) -> Model:
         deaths=previous_stats.deaths + deaths,
         mutation_events=previous_stats.mutation_events + mutation_events,
     )
-    return Model(
-        model.schema_version,
-        model.seed,
-        model.tick + 1,
-        copy.deepcopy(model.settings),
-        tuple(resources),
-        organisms,
-        rng.getstate(),
-        statistics,
-    )
+    # Biological operations preserve movement state for surviving individuals.
+    previous = {item.id: item for item in model.organisms}
+    organisms = tuple(replace(item, vx=previous[item.id].vx, vy=previous[item.id].vy,
+                              behavior=previous[item.id].behavior, target=previous[item.id].target,
+                              cooldown=previous[item.id].cooldown)
+                      if item.id in previous else item for item in organisms)
+    return replace(model, tick=model.tick + 1, settings=copy.deepcopy(model.settings),
+                   resources=tuple(resources), organisms=organisms,
+                   random_state=rng.getstate(), statistics=statistics)
 
 
-def update(model: Model, message: Tick | Reset) -> Model:
+def update(model: Model, message: Tick | Reset | Advance) -> Model:
     """Apply one pure biological message and return a new model."""
 
     if not isinstance(model, Model):
         raise TypeError("model must be a Model")
+    if isinstance(message, Advance):
+        try:
+            from scripts.ecosystem_motion import advance
+        except ModuleNotFoundError:
+            from ecosystem_motion import advance
+        return advance(model, _valid_dt(message.seconds))
     if isinstance(message, Tick):
         return _tick(model, message)
     if isinstance(message, Reset):
@@ -475,6 +514,8 @@ def model_to_json(model: Model) -> dict[str, Any]:
             "mutationEvents": model.statistics.mutation_events,
         },
         "randomState": _json_value(model.random_state),
+        "worldTime": model.world_time.__dict__.copy(),
+        "shelters": [item.__dict__.copy() for item in model.shelters],
     }
     return _json_value(payload)
 
@@ -490,7 +531,7 @@ def model_from_json(payload: Any) -> Model:
 
     root = _object(payload, name="model")
     schema_version = root.get("schemaVersion")
-    if schema_version not in {LEGACY_MODEL_SCHEMA_VERSION, MODEL_SCHEMA_VERSION}:
+    if isinstance(schema_version, bool) or schema_version not in {1, 2, MODEL_SCHEMA_VERSION}:
         raise ModelValidationError("unsupported model schema version")
     seed = root.get("seed")
     tick = _integer(root.get("tick"), name="tick")
@@ -502,6 +543,8 @@ def model_from_json(payload: Any) -> Model:
     raw_organisms = root.get("organisms")
     if not isinstance(raw_resources, list) or not isinstance(raw_organisms, list):
         raise ModelValidationError("resources and organisms must be arrays")
+    if len(raw_resources) > 256 or len(raw_organisms) > sum(MAX_POPULATION.values()):
+        raise ModelValidationError("model entity limit exceeded")
 
     resources: list[Resource] = []
     for raw in raw_resources:
@@ -530,14 +573,23 @@ def model_from_json(payload: Any) -> Model:
             _integer(item.get("age", 0), name="organism.age"),
             _integer(item.get("generation", 0), name="organism.generation"),
             diet_preference, aggression, cooldown,
+            _number(item.get("vx", 0.018), name="vx", minimum=-1, maximum=1),
+            _number(item.get("vy", 0.0), name="vy", minimum=-1, maximum=1),
+            _choice(item.get("behavior", "cruise"), ("cruise",), "behavior"),
+            _identity(item.get("target", ""), "target", empty=True),
+            _number(item.get("cooldown", 0.0), name="cooldown", minimum=0, maximum=3600),
         ))
 
+    ids = [item.id for item in organisms]
+    if len(ids) != len(set(ids)) or any(sum(item.species == species for item in organisms) > limit
+                                      for species, limit in MAX_POPULATION.items()):
+        raise ModelValidationError("duplicate organism ID or species population limit exceeded")
     random_state = root.get("randomState")
     if not isinstance(random_state, list):
         raise ModelValidationError("randomState must be an array")
     try:
         state = tuple(_restore_tuple(random_state))
-        checker = random.Random()
+        checker = random.Random(0)
         checker.setstate(state)
     except (TypeError, ValueError, IndexError):
         raise ModelValidationError("randomState is invalid") from None
@@ -555,9 +607,37 @@ def model_from_json(payload: Any) -> Model:
             raw_statistics.get("mutationEvents", 0), name="statistics.mutationEvents"
         ),
     )
-    return Model(
-        MODEL_SCHEMA_VERSION, seed, tick, settings, tuple(resources), tuple(organisms), state, statistics
-    )
+    raw_time = _object(root.get("worldTime", {}), name="worldTime")
+    world_time = WorldTime(**{
+        key: (_choice(raw_time.get(key, default), ("", "food", "hunt", "shrimp", "current"), key)
+              if key == "scene" else _number(raw_time.get(key, default), name=key,
+                  minimum=0, maximum={"remainder": 0.1, "biology_remainder": 60,
+                                      "scene_remaining": 3600, "quiet_remaining": 3600}.get(key, float("inf"))))
+        for key, default in WorldTime().__dict__.items()
+    })
+    raw_shelters = root.get("shelters", [item.__dict__ for item in DEFAULT_SHELTERS])
+    if not isinstance(raw_shelters, list) or len(raw_shelters) > 16:
+        raise ModelValidationError("shelters must be a bounded array")
+    shelters = []
+    for raw in raw_shelters:
+        item = _object(raw, name="shelter")
+        shelters.append(Shelter(_identity(item.get("id"), "shelter.id"),
+            _number(item.get("x"), name="shelter.x", minimum=0, maximum=1),
+            _number(item.get("y"), name="shelter.y", minimum=0, maximum=1)))
+    return Model(MODEL_SCHEMA_VERSION, seed, tick, settings, tuple(resources),
+                 tuple(organisms), state, statistics, world_time, tuple(shelters))
+
+
+def _identity(value: Any, name: str, *, empty: bool = False) -> str:
+    if not isinstance(value, str) or len(value) > 128 or (not empty and not value):
+        raise ModelValidationError(f"invalid {name}")
+    return value
+
+
+def _choice(value: Any, choices: tuple[str, ...], name: str) -> str:
+    if not isinstance(value, str) or value not in choices:
+        raise ModelValidationError(f"invalid {name}")
+    return value
 
 
 def _restore_tuple(value: Any) -> Any:

@@ -27,13 +27,40 @@ class FakeStore:
 
 
 class EcosystemServiceTests(unittest.TestCase):
+    def test_motion_biology_settings_and_pause_are_independent_of_readers(self):
+        service = EcosystemService(FakeStore(initial_model(3)), clock=lambda: 60.0)
+        service.start(0)
+        for step in range(1, 601):
+            service.advance(step / 10)
+            for _ in range(step % 4):
+                service.snapshot()
+        self.assertEqual(service.model.statistics.biological_minutes, 1)
+        self.assertEqual(service.model.world_time.seconds, 60)
+        before = service.model
+        service.set_simulation_settings({"food_abundance": 0.5})
+        self.assertEqual(service.model.world_time, before.world_time)
+        self.assertEqual(service.model.statistics, before.statistics)
+        self.assertEqual(service.model.organisms, before.organisms)
+        service.advance(6000)
+        self.assertEqual(service.model.world_time.seconds, 65)
+        self.assertEqual(service.advance(6000), 0)
+
+    def test_invalid_settings_preserve_world_and_runtime_controls(self):
+        service = EcosystemService(FakeStore(initial_model(3)))
+        before = service.model
+        with self.assertRaises(ValueError):
+            service.set_simulation_settings({"enabled": False, "food_abundance": 99})
+        self.assertTrue(service.simulation_enabled)
+        self.assertEqual(service.model, before)
+
     def test_elapsed_time_advances_fixed_ticks_and_coalesces_checkpoints(self) -> None:
         store = FakeStore(initial_model(3))
-        service = EcosystemService(store, tick_interval=1.0, clock=lambda: 0.0)
+        service = EcosystemService(store, clock=lambda: 0.0)
         service.start(0)
-        self.assertEqual(service.advance(0.9), 0)
-        self.assertEqual(service.advance(2.9), 2)
-        self.assertEqual(service.model.tick, 2)
+        self.assertEqual(service.advance(0.09), 0)
+        self.assertEqual(service.advance(2.9), 29)
+        self.assertEqual(service.model.tick, 0)
+        self.assertEqual(service.model.world_time.seconds, 2.9)
         self.assertEqual(store.loads, 1)
         self.assertEqual(store.writes, [])
         self.assertEqual(service.snapshot(), model_to_json(service.model))

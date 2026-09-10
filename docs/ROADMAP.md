@@ -47,6 +47,10 @@ expanded.
 10. **Evolution telemetry** — expose biological elapsed time, species,
     generations, births, deaths, mutation events, and ecology statistics in the
     terminal surface. Complete.
+11. **Living events** — shared visible movement, autonomous food drops, distinct
+    predators with rare hunts, personalities, shrimp encounters, and currents.
+    Shared motion (task 10) complete; events (tasks 11–14) planned.
+    See the [event plan](LIVING_EVENTS_PLAN.md).
 
 The ecosystem core, pure view, runtime service, configuration, terminal
 renderer, evolution telemetry, and lock-surface rendering are implemented. The

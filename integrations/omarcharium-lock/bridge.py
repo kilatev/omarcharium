@@ -92,13 +92,17 @@ def fallback_frame(payload: Any, error: str) -> dict[str, Any]:
 
 
 def main() -> None:
+    last_frame = None
     for line in sys.stdin:
         try:
             payload = json.loads(line)
             frame = render_snapshot(payload, lambda: request({"operation": "snapshot"}))
+            last_frame = frame
         except (OSError, ValueError, TypeError, RuntimeError, json.JSONDecodeError) as error:
             try:
                 frame = fallback_frame(json.loads(line), str(error))
+                if last_frame is not None and (frame["width"], frame["height"]) == (last_frame["width"], last_frame["height"]):
+                    frame = dict(last_frame, error=str(error)[:160])
             except (ValueError, TypeError, json.JSONDecodeError):
                 continue
         print(json.dumps(frame, separators=(",", ":")), flush=True)

@@ -60,6 +60,15 @@ continues to use focused smoke and live-surface checks.
 8. `tasks/07-lock-integration.md` — shared read-only lock rendering
 9. `tasks/08-tuning-release.md` — tuning, profiling, documentation
 10. `tasks/09-evolution-telemetry.md` — evolution telemetry and terminal statistics
+11. `tasks/10-shared-motion.md` — authoritative movement and shared event timing
+12. `tasks/11-food-drops.md` — autonomous falling food and feeding response
+13. `tasks/12-rare-hunts.md` — distinct predators, rare hunts, and recovery
+14. `tasks/13-fish-personalities.md` — schooling, personalities, and shrimp encounters
+15. `tasks/14-currents-tuning.md` — current events and integrated pacing verification
+
+Task 10 is complete; tasks 11–14 remain planned. Their product scope, initial tuning
+targets, dependencies, and cross-cutting acceptance criteria are defined in
+[`docs/LIVING_EVENTS_PLAN.md`](docs/LIVING_EVENTS_PLAN.md).
 
 The first three feature tasks provide most of the value and should be completed before investing in service infrastructure.
 
