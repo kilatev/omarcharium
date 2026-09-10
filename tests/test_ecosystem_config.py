@@ -22,7 +22,7 @@ class EcosystemConfigTests(unittest.TestCase):
         self.assertEqual(normalized, {
             "enabled": False, "simulationSpeed": 4.0, "startingSeed": 2**31 - 1,
             "foodAbundance": 0.0, "mutationRate": 1.0, "predatorPressure": 1.0,
-            "diagnosticAccelerated": False,
+            "diagnosticAccelerated": False, "foodDrops": True,
         })
 
     def test_control_update_preserves_other_controls_and_returns_fresh_data(self) -> None:
@@ -49,7 +49,7 @@ class EcosystemConfigTests(unittest.TestCase):
 
     def test_model_settings_uses_only_biological_controls(self) -> None:
         settings = model_settings({"ecosystem": {"foodAbundance": 1.5, "mutationRate": 0.2, "predatorPressure": 0.4, "simulationSpeed": 4}})
-        self.assertEqual(settings, {"food_abundance": 1.5, "mutation_rate": 0.2, "predator_pressure": 0.4})
+        self.assertEqual(settings, {"food_abundance": 1.5, "mutation_rate": 0.2, "predator_pressure": 0.4, "food_drops": True})
 
 
 if __name__ == "__main__":

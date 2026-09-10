@@ -6,9 +6,10 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from dataclasses import replace
 
 from hypothesis import given, settings, strategies as st
-from scripts.ecosystem_model import initial_model
+from scripts.ecosystem_model import Crumb, initial_model
 from scripts.ecosystem_view import Viewport, view
 
 
@@ -20,7 +21,8 @@ class QmlGeometryTests(unittest.TestCase):
             (Path("/usr/lib/qt6/bin/qmltestrunner"), Path("/usr/lib/qt5/bin/qmltestrunner")) if p.is_file()), None)
         self.assertIsNotNone(runner, "Qt Quick Test is required for generated geometry cases")
         helper = Path(__file__).resolve().parents[1] / "integrations/omarcharium-lock/FrameGeometry.js"
-        frame = view(initial_model(seed), Viewport(width, height))
+        model = replace(initial_model(seed), crumbs=(Crumb("crumb", .3, .4),))
+        frame = view(model, Viewport(width, height))
         # The minimized JSON fixture appears in the failing subprocess assertion.
         source = '''import QtQuick
 import QtTest
@@ -30,8 +32,9 @@ TestCase {
     property var frame: %s
     function test_coordinates() {
         var before = JSON.stringify(frame)
-        for (var i = 0; i < frame.organisms.length; ++i) {
-            var fish = frame.organisms[i]
+        var entities = frame.organisms.concat(frame.crumbs)
+        for (var i = 0; i < entities.length; ++i) {
+            var fish = entities[i]
             var p = Geometry.point(fish, frame, 1920, 1080)
             verify(p.x >= 0 && p.x <= 1920)
             verify(p.y >= 0 && p.y <= 1080)

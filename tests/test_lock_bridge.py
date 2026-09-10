@@ -2,10 +2,11 @@ import importlib.util
 import unittest
 import io
 import json
+from dataclasses import replace
 from unittest.mock import patch
 from pathlib import Path
 
-from scripts.ecosystem_model import Advance, initial_model, model_to_json, update
+from scripts.ecosystem_model import Advance, Crumb, initial_model, model_to_json, update
 from scripts.aquarium import OceanScene, normalise_config
 
 
@@ -19,6 +20,7 @@ SPEC.loader.exec_module(BRIDGE)
 class LockBridgeTests(unittest.TestCase):
     def test_terminal_and_lock_share_motion_and_hold_stale_state(self):
         model = update(initial_model(7), Advance(1))
+        model = replace(model, crumbs=(Crumb("crumb", .5, .4),))
         before = model_to_json(model)
         terminal = OceanScene(80, 24, normalise_config({}), 7)
         terminal.shared_world = True
@@ -28,6 +30,7 @@ class LockBridgeTests(unittest.TestCase):
         terminal.render()
         self.assertEqual(terminal.shared_frame()["organisms"], frame["organisms"])
         self.assertEqual(terminal.shared_frame()["shelters"], frame["shelters"])
+        self.assertEqual(terminal.shared_frame()["crumbs"], frame["crumbs"])
         self.assertEqual(model_to_json(model), before)
         output = io.StringIO()
         with patch.object(BRIDGE.sys, "stdin", io.StringIO('[80,24]\n[80,24]\n')), patch.object(BRIDGE.sys, "stdout", output), patch.object(BRIDGE, "request", side_effect=[{"snapshot": before}, OSError("offline")]):

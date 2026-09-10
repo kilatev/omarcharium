@@ -176,3 +176,19 @@ python3 scripts/aquarium.py --no-sound
 ```
 
 The last two commands require a real terminal. Use `--audio-test` for headless audio diagnostics.
+
+## Autonomous food drops
+
+`ecosystem.foodDrops` defaults to `true`. The control room's **Automatic food
+drops** toggle enables small portions falling from above without keyboard or
+pointer interaction. After an initial 90 active seconds, opportunities recur at
+seeded intervals of 60–180 seconds. An occupied scene or quiet interval skips an
+opportunity; skipped portions are never queued. Simulation speed scales these
+intervals together with movement.
+
+A portion contains 4–10 finite crumbs, sinking for up to 30 seconds. Hungry
+herbivores approach reachable crumbs and compete for them; each crumb transfers
+only its remaining energy. Unconsumed crumbs expire without regenerating or
+accumulating on the bottom. Disabling drops prevents new portions while existing
+crumbs can still be eaten or expire. `foodAbundance` continues to control algae
+regeneration independently. Saves preserve in-flight food and the next timer.

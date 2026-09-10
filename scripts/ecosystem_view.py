@@ -126,6 +126,8 @@ def view(model: Model, viewport: Viewport) -> dict[str, Any]:
         "tick": model.tick,
         "seconds": model.world_time.seconds,
         "scene": model.world_time.scene,
+        "crumbs": [{"id": c.id, "x": c.x * viewport.width, "y": c.y * viewport.height,
+                    "amount": c.amount} for c in model.crumbs],
         "shelters": [{"id": item.id, "x": item.x * viewport.width,
                       "y": item.y * viewport.height} for item in model.shelters],
         "resources": resources,

@@ -59,6 +59,14 @@ DesignBase {
             if (!f) return
             var cw = width / f.width, ch = height / f.height
             var scale = Math.min(cw, ch)
+            var crumbs = f.crumbs || []
+            ctx.fillStyle = "#f7d994"
+            for (var c = 0; c < crumbs.length; ++c) {
+                var crumb = Geometry.point(crumbs[c], f, width, height)
+                ctx.beginPath()
+                ctx.arc(crumb.x, crumb.y, Math.max(2, scale * 0.18), 0, Math.PI * 2)
+                ctx.fill()
+            }
             var shelters = f.shelters || []
             for (var s = 0; s < shelters.length; ++s) {
                 var shelter = shelters[s]

@@ -10,8 +10,10 @@ import math
 
 try:
     from scripts.ecosystem_model import Model, Tick, update
+    from scripts.ecosystem_food import prepare_food, food_target, consume_food
 except ModuleNotFoundError:
     from ecosystem_model import Model, Tick, update
+    from ecosystem_food import prepare_food, food_target, consume_food
 
 STEP = 0.1
 MAX_CATCHUP = 5.0
@@ -32,6 +34,7 @@ def start_scene(model: Model, kind: str, duration: float) -> Model:
 
 
 def _step(model: Model) -> Model:
+    model = prepare_food(model, STEP)
     clock = model.world_time
     seconds = round(clock.seconds + STEP, 6)
     remaining = max(0.0, round(clock.scene_remaining - STEP, 6))
@@ -43,6 +46,11 @@ def _step(model: Model) -> Model:
         heading = 1 if fish.vx >= 0 else -1
         vx = heading * (0.012 + phase(fish.id) * 0.016)
         vy = math.sin(seconds * 0.13 + phase(fish.id) * math.tau) * 0.004
+        target = food_target(fish, model.crumbs)
+        if target:
+            dx, dy = target.x - fish.x, target.y - fish.y
+            distance = max(0.001, math.hypot(dx, dy))
+            vx, vy = dx / distance * 0.07, dy / distance * 0.07
         # Local separation reads only the previous state, with stable tie breaks.
         for other in ordered:
             if other.id == fish.id:
@@ -55,7 +63,8 @@ def _step(model: Model) -> Model:
                 force = 0.012 * max(0.1, 1 - distance / 0.035)
                 vx += dx / distance * force
                 vy += dy / distance * force
-        vx, vy = max(-0.06, min(0.06, vx)), max(-0.03, min(0.03, vy))
+        limit = 0.08 if target else 0.03
+        vx, vy = max(-0.08, min(0.08, vx)), max(-limit, min(limit, vy))
         x, y = fish.x + vx * STEP, fish.y + vy * STEP
         if x < 0.02 or x > 0.98:
             vx = abs(vx) if x < 0.02 else -abs(vx)
@@ -63,6 +72,7 @@ def _step(model: Model) -> Model:
             vy = abs(vy) if y < 0.08 else -abs(vy)
         organisms.append(replace(fish, x=max(0.02, min(0.98, x)),
             y=max(0.08, min(0.92, y)), vx=vx, vy=vy,
+            behavior="feed" if target else "cruise", target=target.id if target else "",
             cooldown=max(0.0, round(fish.cooldown - STEP, 6))))
     biology = round(clock.biology_remainder + STEP, 6)
     result = replace(model, organisms=tuple(organisms), world_time=replace(clock,
@@ -71,7 +81,7 @@ def _step(model: Model) -> Model:
         biology_remainder=biology % 60))
     if biology >= 60:
         result = update(result, Tick(1))
-    return result
+    return consume_food(result)
 
 
 def advance(model: Model, seconds: float) -> Model:

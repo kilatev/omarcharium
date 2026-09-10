@@ -49,7 +49,7 @@ expanded.
     terminal surface. Complete.
 11. **Living events** — shared visible movement, autonomous food drops, distinct
     predators with rare hunts, personalities, shrimp encounters, and currents.
-    Shared motion (task 10) complete; events (tasks 11–14) planned.
+    Shared motion and food drops (tasks 10–11) complete; tasks 12–14 planned.
     See the [event plan](LIVING_EVENTS_PLAN.md).
 
 The ecosystem core, pure view, runtime service, configuration, terminal

@@ -42,6 +42,7 @@
     "foodAbundance": 1.0,
     "mutationRate": 0.08,
     "predatorPressure": 1.0,
+    "foodDrops": true,
     "diagnosticAccelerated": false
   }
 }

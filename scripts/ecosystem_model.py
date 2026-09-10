@@ -14,7 +14,7 @@ from collections.abc import Mapping
 from typing import Any
 
 
-MODEL_SCHEMA_VERSION = 3
+MODEL_SCHEMA_VERSION = 4
 LEGACY_MODEL_SCHEMA_VERSION = 1
 SPECIES = (
     "neon_tetra",
@@ -116,6 +116,16 @@ class WorldTime:
     scene: str = ""
     scene_remaining: float = 0.0
     quiet_remaining: float = 30.0
+    food_in: float = 90.0
+
+
+@dataclass(frozen=True)
+class Crumb:
+    id: str
+    x: float
+    y: float
+    amount: float = 0.035
+    lifetime: float = 30.0
 
 
 @dataclass(frozen=True)
@@ -148,6 +158,7 @@ class Model:
     statistics: EvolutionStats = EvolutionStats()
     world_time: WorldTime = WorldTime()
     shelters: tuple[Shelter, ...] = DEFAULT_SHELTERS
+    crumbs: tuple[Crumb, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -228,6 +239,7 @@ def _settings(settings: Mapping[str, Any] | None, *, normalize: bool = True) -> 
         "food_abundance": _number(incoming.get("food_abundance", 1.0), name="food_abundance", minimum=0.0, maximum=2.0),
         "mutation_rate": _number(incoming.get("mutation_rate", MUTATION_RATE), name="mutation_rate", minimum=0.0, maximum=1.0),
         "predator_pressure": _number(incoming.get("predator_pressure", 1.0), name="predator_pressure", minimum=0.0, maximum=2.0),
+        "food_drops": incoming.get("food_drops", True) is True,
     }
 
 
@@ -516,6 +528,7 @@ def model_to_json(model: Model) -> dict[str, Any]:
         "randomState": _json_value(model.random_state),
         "worldTime": model.world_time.__dict__.copy(),
         "shelters": [item.__dict__.copy() for item in model.shelters],
+        "crumbs": [item.__dict__.copy() for item in model.crumbs],
     }
     return _json_value(payload)
 
@@ -531,7 +544,7 @@ def model_from_json(payload: Any) -> Model:
 
     root = _object(payload, name="model")
     schema_version = root.get("schemaVersion")
-    if isinstance(schema_version, bool) or schema_version not in {1, 2, MODEL_SCHEMA_VERSION}:
+    if isinstance(schema_version, bool) or schema_version not in {1, 2, 3, MODEL_SCHEMA_VERSION}:
         raise ModelValidationError("unsupported model schema version")
     seed = root.get("seed")
     tick = _integer(root.get("tick"), name="tick")
@@ -575,7 +588,7 @@ def model_from_json(payload: Any) -> Model:
             diet_preference, aggression, cooldown,
             _number(item.get("vx", 0.018), name="vx", minimum=-1, maximum=1),
             _number(item.get("vy", 0.0), name="vy", minimum=-1, maximum=1),
-            _choice(item.get("behavior", "cruise"), ("cruise",), "behavior"),
+            _choice(item.get("behavior", "cruise"), ("cruise", "feed"), "behavior"),
             _identity(item.get("target", ""), "target", empty=True),
             _number(item.get("cooldown", 0.0), name="cooldown", minimum=0, maximum=3600),
         ))
@@ -612,7 +625,7 @@ def model_from_json(payload: Any) -> Model:
         key: (_choice(raw_time.get(key, default), ("", "food", "hunt", "shrimp", "current"), key)
               if key == "scene" else _number(raw_time.get(key, default), name=key,
                   minimum=0, maximum={"remainder": 0.1, "biology_remainder": 60,
-                                      "scene_remaining": 3600, "quiet_remaining": 3600}.get(key, float("inf"))))
+                                      "scene_remaining": 3600, "quiet_remaining": 3600, "food_in": 3600}.get(key, float("inf"))))
         for key, default in WorldTime().__dict__.items()
     })
     raw_shelters = root.get("shelters", [item.__dict__ for item in DEFAULT_SHELTERS])
@@ -624,8 +637,21 @@ def model_from_json(payload: Any) -> Model:
         shelters.append(Shelter(_identity(item.get("id"), "shelter.id"),
             _number(item.get("x"), name="shelter.x", minimum=0, maximum=1),
             _number(item.get("y"), name="shelter.y", minimum=0, maximum=1)))
+    raw_crumbs = root.get("crumbs", [])
+    if not isinstance(raw_crumbs, list) or len(raw_crumbs) > 10:
+        raise ModelValidationError("crumbs must be a bounded array")
+    crumbs = []
+    for raw in raw_crumbs:
+        item = _object(raw, name="crumb")
+        crumbs.append(Crumb(_identity(item.get("id"), "crumb.id"),
+            _number(item.get("x"), name="crumb.x", minimum=0, maximum=1),
+            _number(item.get("y"), name="crumb.y", minimum=0, maximum=1),
+            _number(item.get("amount"), name="crumb.amount", minimum=0, maximum=0.1),
+            _number(item.get("lifetime"), name="crumb.lifetime", minimum=0, maximum=30)))
+    if len({item.id for item in crumbs}) != len(crumbs):
+        raise ModelValidationError("duplicate crumb ID")
     return Model(MODEL_SCHEMA_VERSION, seed, tick, settings, tuple(resources),
-                 tuple(organisms), state, statistics, world_time, tuple(shelters))
+                 tuple(organisms), state, statistics, world_time, tuple(shelters), tuple(crumbs))
 
 
 def _identity(value: Any, name: str, *, empty: bool = False) -> str:

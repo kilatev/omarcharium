@@ -118,7 +118,7 @@ class EcosystemService:
         with self._lock:
             merged = dict(self.model.settings)
             biological = {
-                key: settings[key] for key in ("food_abundance", "mutation_rate", "predator_pressure")
+                key: settings[key] for key in ("food_abundance", "mutation_rate", "predator_pressure", "food_drops")
                 if key in settings
             }
             merged.update(biological)

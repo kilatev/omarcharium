@@ -23,7 +23,7 @@ Item {
     ecosystem: {
       enabled: true, simulationSpeed: 1.0, startingSeed: 7,
       foodAbundance: 1.0, mutationRate: 0.08, predatorPressure: 1.0,
-      diagnosticAccelerated: false
+      diagnosticAccelerated: false, foodDrops: true
     }
   })
   property var speciesDefinitions: [
@@ -120,6 +120,7 @@ Item {
     next.ecosystem.foodAbundance = Math.round(clamp(ecosystem.foodAbundance, 0, 2, defaults.ecosystem.foodAbundance) * 10000) / 10000
     next.ecosystem.mutationRate = Math.round(clamp(ecosystem.mutationRate, 0, 1, defaults.ecosystem.mutationRate) * 10000) / 10000
     next.ecosystem.predatorPressure = Math.round(clamp(ecosystem.predatorPressure, 0, 2, defaults.ecosystem.predatorPressure) * 10000) / 10000
+    next.ecosystem.foodDrops = ecosystem.foodDrops === undefined ? true : ecosystem.foodDrops === true
     next.ecosystem.diagnosticAccelerated = ecosystem.diagnosticAccelerated === undefined ? defaults.ecosystem.diagnosticAccelerated : !!ecosystem.diagnosticAccelerated
     return next
   }
@@ -229,6 +230,7 @@ Item {
       food_abundance: config.ecosystem.foodAbundance,
       mutation_rate: config.ecosystem.mutationRate,
       predator_pressure: config.ecosystem.predatorPressure,
+      food_drops: config.ecosystem.foodDrops,
       diagnostic_accelerated: config.ecosystem.diagnosticAccelerated
     })])
     statusLine = "ECOSYSTEM RESET REQUESTED"
@@ -242,6 +244,7 @@ Item {
     ecosystem.food_abundance = ecosystem.foodAbundance
     ecosystem.mutation_rate = ecosystem.mutationRate
     ecosystem.predator_pressure = ecosystem.predatorPressure
+    ecosystem.food_drops = ecosystem.foodDrops
     ecosystem.diagnostic_accelerated = ecosystem.diagnosticAccelerated
     Quickshell.execDetached(["python3", pluginDir + "/scripts/ecosystem_client.py", "settings", "--settings", JSON.stringify(ecosystem)])
   }
@@ -1167,6 +1170,14 @@ Item {
             }
           }
 
+          Rectangle {
+            width: parent.width; height: 58; radius: 11
+            color: root.config.ecosystem.foodDrops ? "#241bb8c8" : "#160c252d"
+            border.color: root.accent
+            Text { x: 16; anchors.verticalCenter: parent.verticalCenter; text: "AUTOMATIC FOOD DROPS"; color: "#d7eef2"; font.family: root.fontFamily; font.pixelSize: 12 }
+            Text { anchors { right: parent.right; rightMargin: 18; verticalCenter: parent.verticalCenter } text: root.config.ecosystem.foodDrops ? "ON" : "OFF"; color: root.accent }
+            MouseArea { anchors.fill: parent; onClicked: root.changeEcosystem("foodDrops", !root.config.ecosystem.foodDrops) }
+          }
           Text {
             text: "SURFACE CONTROL"
             color: "#8baab2"

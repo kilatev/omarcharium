@@ -15,6 +15,7 @@ DEFAULT_ECOSYSTEM_CONFIG = {
     "foodAbundance": 1.0,
     "mutationRate": 0.08,
     "predatorPressure": 1.0,
+    "foodDrops": True,
     "diagnosticAccelerated": False,
 }
 CONTROL_KEYS = frozenset(DEFAULT_ECOSYSTEM_CONFIG)
@@ -47,6 +48,7 @@ def normalise_ecosystem_config(raw: Any) -> dict[str, Any]:
         "foodAbundance": round(_number(incoming.get("foodAbundance"), 1.0, 0.0, 2.0), 4),
         "mutationRate": round(_number(incoming.get("mutationRate"), 0.08, 0.0, 1.0), 4),
         "predatorPressure": round(_number(incoming.get("predatorPressure"), 1.0, 0.0, 2.0), 4),
+        "foodDrops": incoming.get("foodDrops", True) is True,
         "diagnosticAccelerated": incoming.get("diagnosticAccelerated", False) is True,
     }
 
@@ -75,6 +77,7 @@ def model_settings(config: Mapping[str, Any]) -> dict[str, float]:
         "food_abundance": ecosystem["foodAbundance"],
         "mutation_rate": ecosystem["mutationRate"],
         "predator_pressure": ecosystem["predatorPressure"],
+        "food_drops": ecosystem["foodDrops"],
     }
 
 
