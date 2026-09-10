@@ -192,3 +192,27 @@ only its remaining energy. Unconsumed crumbs expire without regenerating or
 accumulating on the bottom. Disabling drops prevents new portions while existing
 crumbs can still be eaten or expire. `foodAbundance` continues to control algae
 regeneration independently. Saves preserve in-flight food and the next timer.
+
+## Predators and rare hunts
+
+Two artistic reef species are available: `reef_stalker` (a broad-bodied shelter
+ambusher, default 1) and `reef_hunter` (a slender patrol fish, default 0), each
+capped at 3. Existing saves retain their actual populations. Species controls
+select starting counts; **Reset world to configured populations** explicitly
+replaces the world and restores default ecosystem settings. No new species is
+silently inserted into a loaded checkpoint.
+
+All predators, including the original four species, now require an active hunt
+and physical contact to eat fish. Energy below 0.85 and completed recovery make
+a predator eligible; only one scene runs at a time. Preparation lasts 0.7 active
+seconds, followed by a 2–5 second ambush or 3–8 second pursuit. Every attempt ends
+in 120–240 seconds of recovery (180–300 for the patrol species). A satiated
+predator waits longer until hungry. Prey avoid nearby predators, burst away
+during pursuit, and regroup with their species afterward.
+
+`predatorPressure: 0` prevents hunts and cancels an active pursuit. Positive
+pressure scales the opportunity interval (45–90 active seconds at 1.0), while
+individual cooldowns, hunger and scene quiet periods still apply. A successful
+kill transfers at most 0.25 energy and never more than 60% of the prey's remaining
+energy. Hunt attempts and successes are exposed in shared telemetry. Save/load
+preserves preparation, targets and recovery; missing targets abort the hunt.

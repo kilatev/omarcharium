@@ -71,14 +71,25 @@ def reset_config(config: Mapping[str, Any]) -> dict[str, Any]:
     return preserved
 
 
-def model_settings(config: Mapping[str, Any]) -> dict[str, float]:
+def model_settings(config: Mapping[str, Any]) -> dict[str, Any]:
     ecosystem = normalise_ecosystem_config(config.get("ecosystem", config))
-    return {
+    result = {
         "food_abundance": ecosystem["foodAbundance"],
         "mutation_rate": ecosystem["mutationRate"],
         "predator_pressure": ecosystem["predatorPressure"],
         "food_drops": ecosystem["foodDrops"],
     }
+    if isinstance(config.get("species"), Mapping):
+        try:
+            from scripts.ecosystem_model import DEFAULT_POPULATION, MAX_POPULATION
+        except ModuleNotFoundError:
+            from ecosystem_model import DEFAULT_POPULATION, MAX_POPULATION
+        result["species"] = {
+            key: max(0, min(MAX_POPULATION[key], value))
+            if isinstance(value := config["species"].get(key, default), int) and not isinstance(value, bool)
+            else default for key, default in DEFAULT_POPULATION.items()
+        }
+    return result
 
 
 __all__ = [

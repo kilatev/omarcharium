@@ -243,7 +243,7 @@ class EvolutionTelemetryTests(unittest.TestCase):
         self.assertFalse(adapter.refresh(0.05))
         self.assertTrue(adapter.refresh(0.1))
         self.assertEqual(len(calls), 2)
-        self.assertEqual(adapter.data["population"], 28)
+        self.assertEqual(adapter.data["population"], 29)
         self.assertEqual(calls[0][0], {"operation": "snapshot"})
         self.assertEqual(calls[0][1], 0.02)
 

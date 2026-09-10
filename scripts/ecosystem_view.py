@@ -30,6 +30,8 @@ class Viewport:
 
 
 SPECIES_STYLE: dict[str, dict[str, Any]] = {
+    "reef_stalker": {"glyph": "stalker", "colour": "#c19b72", "size": 1.45},
+    "reef_hunter": {"glyph": "hunter", "colour": "#91bdce", "size": 1.5},
     "neon_tetra": {"glyph": "fish", "colour": "#45f3ff", "size": 0.75},
     "clownfish": {"glyph": "fish", "colour": "#ff8a3d", "size": 0.95},
     "angelfish": {"glyph": "fish", "colour": "#f7e8a4", "size": 1.2},
@@ -90,6 +92,8 @@ def telemetry(model: Model) -> dict[str, Any]:
         "births": model.statistics.births,
         "deaths": model.statistics.deaths,
         "mutationEvents": model.statistics.mutation_events,
+        "hunts": model.statistics.hunts,
+        "huntSuccesses": model.statistics.hunt_successes,
         "mutationRate": model.settings["mutation_rate"],
         "foodAbundance": model.settings["food_abundance"],
         "predatorPressure": model.settings["predator_pressure"],

@@ -44,15 +44,15 @@ class EcosystemModelTests(unittest.TestCase):
         self.assertLess(next_model.resources[0].amount, 1.0)
         self.assertGreater(next_model.organisms[0].energy, 0.5 - 0.005)
 
-    def test_tick_predation_and_starvation_are_bounded(self) -> None:
+    def test_biological_tick_never_kills_by_proximity_and_starvation_is_bounded(self) -> None:
         model = self._empty_model(2)
         model = Model(model.schema_version, model.seed, model.tick, model.settings, (), (
             Organism("prey", "neon_tetra", 0.5, 0.5, 0.5),
             Organism("predator", "puffer", 0.5, 0.5, 0.5),
         ), model.random_state)
         next_model = update(model, Tick(1.0))
-        self.assertEqual([item.id for item in next_model.organisms], ["predator"])
-        self.assertEqual(next_model.statistics.deaths, 1)
+        self.assertEqual([item.id for item in next_model.organisms], ["predator", "prey"])
+        self.assertEqual(next_model.statistics.deaths, 0)
         self.assertEqual(next_model.statistics.biological_minutes, 1.0)
         self.assertLessEqual(next_model.organisms[0].energy, 1.0)
         starving = Model(

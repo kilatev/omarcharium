@@ -92,6 +92,12 @@ DesignBase {
                 var x = position.x, y = position.y
                 var fishWidth = Math.max(scale * 1.4, fish.width * scale * 2.2)
                 var fishHeight = Math.max(scale * 0.8, fish.height * scale * 1.2)
+                if (fish.kind === "hunter") {
+                    fishWidth *= 1.65
+                    fishHeight *= 0.55
+                } else if (fish.kind === "stalker") {
+                    fishHeight *= 1.25
+                }
                 ctx.fillStyle = fish.colour
                 ctx.beginPath()
                 ctx.ellipse(x, y, fishWidth, fishHeight, 0, 0, Math.PI * 2)

@@ -15,7 +15,7 @@ Item {
   property string statusLine: "CONFIGURATION SYNCHRONIZED"
   property var defaults: ({
     schemaVersion: 1,
-    species: { neon_tetra: 10, clownfish: 4, angelfish: 3, discus: 3, butterflyfish: 2, royal_tang: 3, betta: 1, puffer: 2 },
+    species: { neon_tetra: 10, clownfish: 4, angelfish: 3, discus: 3, butterflyfish: 2, royal_tang: 3, betta: 1, puffer: 2, reef_stalker: 1, reef_hunter: 0 },
     art: { palette: "lagoon", bubbleDensity: 55, current: 1.0, showTelemetry: true, reefDensity: 50 },
     backdrop: { source: "plain", imagePath: "", fitMode: "cover", dimming: 45, effectsEnabled: false, effectIntensity: 55 },
     sound: { enabled: false, volume: 24, water: true, bubbles: true },
@@ -34,7 +34,9 @@ Item {
     { key: "butterflyfish", name: "Butterflyfish", callSign: "PRISM//WING", description: "sharp reef geometry", accent: "#ffe45d", max: 10 },
     { key: "royal_tang", name: "Royal tang", callSign: "COBALT//TANG", description: "blue current runners", accent: "#5899ff", max: 12 },
     { key: "betta", name: "Betta", callSign: "SILK//BETTA", description: "solitary trailing fins", accent: "#c681ff", max: 6 },
-    { key: "puffer", name: "Puffer", callSign: "ORB//PUFFER", description: "curious buoyant sentries", accent: "#a9f37d", max: 10 }
+    { key: "puffer", name: "Puffer", callSign: "ORB//PUFFER", description: "curious buoyant sentries", accent: "#a9f37d", max: 10 },
+    { key: "reef_stalker", name: "Reef stalker", callSign: "REEF//AMBUSH", description: "patient shelter ambusher", accent: "#c19b72", max: 3 },
+    { key: "reef_hunter", name: "Reef hunter", callSign: "REEF//PATROL", description: "slender roaming hunter", accent: "#91bdce", max: 3 }
   ]
   property var config: JSON.parse(JSON.stringify(defaults))
   property real driftPhase: 0
@@ -224,7 +226,7 @@ Item {
     next.ecosystem = clone(defaults.ecosystem)
     config = normalise(next)
     persist()
-    if (pluginDir) Quickshell.execDetached(["python3", pluginDir + "/scripts/ecosystem_client.py", "reset", "--seed", String(config.ecosystem.startingSeed), "--settings", JSON.stringify({
+    if (pluginDir) Quickshell.execDetached(["python3", pluginDir + "/scripts/ecosystem_client.py", "reset", "--seed", String(config.ecosystem.startingSeed), "--population", JSON.stringify(config.species), "--settings", JSON.stringify({
       enabled: config.ecosystem.enabled,
       simulation_speed: config.ecosystem.simulationSpeed,
       food_abundance: config.ecosystem.foodAbundance,
@@ -1177,6 +1179,12 @@ Item {
             Text { x: 16; anchors.verticalCenter: parent.verticalCenter; text: "AUTOMATIC FOOD DROPS"; color: "#d7eef2"; font.family: root.fontFamily; font.pixelSize: 12 }
             Text { anchors { right: parent.right; rightMargin: 18; verticalCenter: parent.verticalCenter } text: root.config.ecosystem.foodDrops ? "ON" : "OFF"; color: root.accent }
             MouseArea { anchors.fill: parent; onClicked: root.changeEcosystem("foodDrops", !root.config.ecosystem.foodDrops) }
+          }
+          Rectangle {
+            width: parent.width; height: 44; radius: 8
+            color: "#160c252d"; border.color: root.accent
+            Text { anchors.centerIn: parent; text: "RESET WORLD TO CONFIGURED POPULATIONS"; color: root.accent; font.family: root.fontFamily; font.pixelSize: 11 }
+            MouseArea { anchors.fill: parent; onClicked: root.resetEcosystem() }
           }
           Text {
             text: "SURFACE CONTROL"

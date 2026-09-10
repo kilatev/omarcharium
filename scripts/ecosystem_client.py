@@ -45,6 +45,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("operation", choices=("snapshot", "reset", "settings", "save"))
     parser.add_argument("--seed", type=int)
+    parser.add_argument("--population", type=json.loads)
     parser.add_argument("--settings", type=json.loads, default={})
     parser.add_argument("--socket", type=Path)
     args = parser.parse_args()
@@ -53,6 +54,10 @@ def main() -> int:
         if args.seed is None:
             parser.error("reset requires --seed")
         payload["seed"] = args.seed
+        if args.population is not None:
+            if not isinstance(args.population, dict):
+                parser.error("--population must decode to an object")
+            payload["starting_population"] = args.population
         if args.settings:
             if not isinstance(args.settings, dict):
                 parser.error("--settings must decode to an object")

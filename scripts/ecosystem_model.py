@@ -14,7 +14,7 @@ from collections.abc import Mapping
 from typing import Any
 
 
-MODEL_SCHEMA_VERSION = 4
+MODEL_SCHEMA_VERSION = 5
 LEGACY_MODEL_SCHEMA_VERSION = 1
 SPECIES = (
     "neon_tetra",
@@ -25,6 +25,8 @@ SPECIES = (
     "royal_tang",
     "betta",
     "puffer",
+    "reef_stalker",
+    "reef_hunter",
 )
 DEFAULT_POPULATION = {
     "neon_tetra": 10,
@@ -35,6 +37,8 @@ DEFAULT_POPULATION = {
     "royal_tang": 3,
     "betta": 1,
     "puffer": 2,
+    "reef_stalker": 1,
+    "reef_hunter": 0,
 }
 MAX_POPULATION = {
     "neon_tetra": 20,
@@ -45,10 +49,12 @@ MAX_POPULATION = {
     "royal_tang": 12,
     "betta": 6,
     "puffer": 10,
+    "reef_stalker": 3,
+    "reef_hunter": 3,
 }
 
 HERBIVORES = frozenset(("neon_tetra", "clownfish", "discus", "royal_tang"))
-PREDATORS = frozenset(("angelfish", "butterflyfish", "betta", "puffer"))
+PREDATORS = frozenset(("angelfish", "butterflyfish", "betta", "puffer", "reef_stalker", "reef_hunter"))
 RESOURCE_REGENERATION = 0.20
 METABOLISM = 0.005
 RESOURCE_MEAL = 0.02
@@ -73,6 +79,8 @@ TRAIT_BOUNDS = {
     "royal_tang": ((0.75, 1.00), (0.05, 0.30)),
     "betta": ((0.05, 0.30), (0.65, 1.00)),
     "puffer": ((0.10, 0.45), (0.55, 1.00)),
+    "reef_stalker": ((0.05, 0.25), (0.55, 0.85)),
+    "reef_hunter": ((0.05, 0.30), (0.45, 0.80)),
 }
 
 
@@ -117,6 +125,15 @@ class WorldTime:
     scene_remaining: float = 0.0
     quiet_remaining: float = 30.0
     food_in: float = 90.0
+    hunt_in: float = 45.0
+
+
+@dataclass(frozen=True)
+class Hunt:
+    actor: str = ""
+    target: str = ""
+    preparation: float = 0.0
+    remaining: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -144,6 +161,8 @@ class EvolutionStats:
     births: int = 0
     deaths: int = 0
     mutation_events: int = 0
+    hunts: int = 0
+    hunt_successes: int = 0
 
 
 @dataclass(frozen=True)
@@ -159,6 +178,7 @@ class Model:
     world_time: WorldTime = WorldTime()
     shelters: tuple[Shelter, ...] = DEFAULT_SHELTERS
     crumbs: tuple[Crumb, ...] = ()
+    hunt: Hunt = Hunt()
 
 
 @dataclass(frozen=True)
@@ -341,7 +361,6 @@ def _inherit_traits(
 def _tick(model: Model, message: Tick) -> Model:
     dt = _valid_dt(message.dt)
     abundance = model.settings["food_abundance"]
-    pressure = model.settings["predator_pressure"]
     resources = [
         Resource(resource.id, resource.kind, resource.x, resource.y,
                  min(1.0, resource.amount + RESOURCE_REGENERATION * abundance * dt))
@@ -392,34 +411,8 @@ def _tick(model: Model, message: Tick) -> Model:
             updated.diet_preference, updated.aggression, updated.reproduction_cooldown,
         )
 
-    living_by_id = {organism.id: organism for organism in living}
-    eaten: set[str] = set()
-    for predator in sorted(living, key=lambda item: item.id):
-        if predator.species not in PREDATORS or pressure <= 0:
-            continue
-        candidates = [
-            prey for prey in living
-            if prey.id != predator.id and prey.id not in eaten
-            and prey.species not in PREDATORS
-            and _distance(predator, prey) <= PREDATION_RADIUS * predator.aggression
-        ]
-        if not candidates:
-            continue
-        prey = min(candidates, key=lambda item: item.id)
-        eaten.add(prey.id)
-        current = living_by_id[predator.id]
-        meal = PREDATOR_MEAL * min(1.0, pressure)
-        living_by_id[predator.id] = Organism(
-            current.id, current.species, current.x, current.y,
-            min(1.0, current.energy + meal), current.age, current.generation,
-            current.diet_preference, current.aggression, current.reproduction_cooldown,
-        )
-
-    organisms = tuple(
-        living_by_id[organism.id] for organism in living
-        if organism.id not in eaten and living_by_id[organism.id].energy > 0
-    )
-    deaths += len(eaten)
+    # Only the contact-checked pursuit phase of active motion can kill prey.
+    organisms = tuple(living)
     rng = random.Random(0)
     rng.setstate(model.random_state)
     next_serial = _next_organism_serial(organisms)
@@ -467,7 +460,7 @@ def _tick(model: Model, message: Tick) -> Model:
         counts[parent.species] += 1
     organisms += tuple(births)
     previous_stats = model.statistics
-    statistics = EvolutionStats(
+    statistics = replace(previous_stats,
         biological_minutes=round(previous_stats.biological_minutes + dt, 6),
         births=previous_stats.births + len(births),
         deaths=previous_stats.deaths + deaths,
@@ -524,11 +517,14 @@ def model_to_json(model: Model) -> dict[str, Any]:
             "births": model.statistics.births,
             "deaths": model.statistics.deaths,
             "mutationEvents": model.statistics.mutation_events,
+            "hunts": model.statistics.hunts,
+            "huntSuccesses": model.statistics.hunt_successes,
         },
         "randomState": _json_value(model.random_state),
         "worldTime": model.world_time.__dict__.copy(),
         "shelters": [item.__dict__.copy() for item in model.shelters],
         "crumbs": [item.__dict__.copy() for item in model.crumbs],
+        "hunt": model.hunt.__dict__.copy(),
     }
     return _json_value(payload)
 
@@ -544,7 +540,7 @@ def model_from_json(payload: Any) -> Model:
 
     root = _object(payload, name="model")
     schema_version = root.get("schemaVersion")
-    if isinstance(schema_version, bool) or schema_version not in {1, 2, 3, MODEL_SCHEMA_VERSION}:
+    if isinstance(schema_version, bool) or schema_version not in {1, 2, 3, 4, MODEL_SCHEMA_VERSION}:
         raise ModelValidationError("unsupported model schema version")
     seed = root.get("seed")
     tick = _integer(root.get("tick"), name="tick")
@@ -588,7 +584,7 @@ def model_from_json(payload: Any) -> Model:
             diet_preference, aggression, cooldown,
             _number(item.get("vx", 0.018), name="vx", minimum=-1, maximum=1),
             _number(item.get("vy", 0.0), name="vy", minimum=-1, maximum=1),
-            _choice(item.get("behavior", "cruise"), ("cruise", "feed"), "behavior"),
+            _choice(item.get("behavior", "cruise"), ("cruise", "feed", "ambush", "patrol", "prepare", "pursue", "rest", "flee", "regroup"), "behavior"),
             _identity(item.get("target", ""), "target", empty=True),
             _number(item.get("cooldown", 0.0), name="cooldown", minimum=0, maximum=3600),
         ))
@@ -610,6 +606,8 @@ def model_from_json(payload: Any) -> Model:
     if not isinstance(raw_statistics, dict):
         raise ModelValidationError("statistics must be an object")
     statistics = EvolutionStats(
+        hunts=_integer(raw_statistics.get("hunts", 0), name="statistics.hunts"),
+        hunt_successes=_integer(raw_statistics.get("huntSuccesses", 0), name="statistics.huntSuccesses"),
         biological_minutes=_number(
             raw_statistics.get("biologicalMinutes", 0.0),
             name="statistics.biologicalMinutes", minimum=0.0, maximum=float("inf"),
@@ -625,7 +623,7 @@ def model_from_json(payload: Any) -> Model:
         key: (_choice(raw_time.get(key, default), ("", "food", "hunt", "shrimp", "current"), key)
               if key == "scene" else _number(raw_time.get(key, default), name=key,
                   minimum=0, maximum={"remainder": 0.1, "biology_remainder": 60,
-                                      "scene_remaining": 3600, "quiet_remaining": 3600, "food_in": 3600}.get(key, float("inf"))))
+                                      "scene_remaining": 3600, "quiet_remaining": 3600, "food_in": 3600, "hunt_in": 3600}.get(key, float("inf"))))
         for key, default in WorldTime().__dict__.items()
     })
     raw_shelters = root.get("shelters", [item.__dict__ for item in DEFAULT_SHELTERS])
@@ -650,8 +648,13 @@ def model_from_json(payload: Any) -> Model:
             _number(item.get("lifetime"), name="crumb.lifetime", minimum=0, maximum=30)))
     if len({item.id for item in crumbs}) != len(crumbs):
         raise ModelValidationError("duplicate crumb ID")
+    raw_hunt = _object(root.get("hunt", {}), name="hunt")
+    hunt = Hunt(_identity(raw_hunt.get("actor", ""), "hunt.actor", empty=True),
+                _identity(raw_hunt.get("target", ""), "hunt.target", empty=True),
+                _number(raw_hunt.get("preparation", 0), name="hunt.preparation", minimum=0, maximum=2),
+                _number(raw_hunt.get("remaining", 0), name="hunt.remaining", minimum=0, maximum=10))
     return Model(MODEL_SCHEMA_VERSION, seed, tick, settings, tuple(resources),
-                 tuple(organisms), state, statistics, world_time, tuple(shelters), tuple(crumbs))
+                 tuple(organisms), state, statistics, world_time, tuple(shelters), tuple(crumbs), hunt)
 
 
 def _identity(value: Any, name: str, *, empty: bool = False) -> str:

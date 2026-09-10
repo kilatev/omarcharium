@@ -8,7 +8,9 @@
     "butterflyfish": 2,
     "royal_tang": 3,
     "betta": 1,
-    "puffer": 2
+    "puffer": 2,
+    "reef_stalker": 1,
+    "reef_hunter": 0
   },
   "art": {
     "palette": "lagoon",

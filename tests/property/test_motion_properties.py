@@ -8,6 +8,22 @@ from scripts.ecosystem_model import Advance, initial_model, model_from_json, mod
 class MotionProperties(unittest.TestCase):
     @settings(max_examples=20, deadline=None, print_blob=True)
     @given(st.integers(-10000, 10000), st.integers(1, 10))
+    def test_hunts_replay_and_never_double_count_a_kill(self, seed, steps):
+        original = initial_model(seed)
+        original = replace(original, world_time=replace(original.world_time, hunt_in=0, quiet_remaining=0, food_in=1000))
+        before = model_to_json(original)
+        left = right = original
+        for _ in range(steps):
+            left = update(left, Advance(1))
+            right = update(model_from_json(model_to_json(right)), Advance(1))
+        self.assertEqual(left, right)
+        self.assertEqual(model_to_json(original), before)
+        self.assertLessEqual(left.statistics.hunt_successes, left.statistics.hunts)
+        self.assertEqual(len(original.organisms) - len(left.organisms), left.statistics.hunt_successes)
+        self.assertTrue(all(0 <= f.energy <= 1 and f.cooldown >= 0 for f in left.organisms))
+
+    @settings(max_examples=20, deadline=None, print_blob=True)
+    @given(st.integers(-10000, 10000), st.integers(1, 10))
     def test_food_scene_roundtrip_energy_and_entity_bounds(self, seed, steps):
         original = initial_model(seed)
         original = replace(original, world_time=replace(original.world_time, food_in=0, quiet_remaining=0))

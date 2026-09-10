@@ -82,6 +82,8 @@ PALETTES: dict[str, dict[str, RGB]] = {
 }
 
 FISH_COLOURS: dict[str, tuple[RGB, RGB, RGB]] = {
+    "reef_stalker": ((193,155,114), (245,210,129), (108,83,69)),
+    "reef_hunter": ((145,189,206), (239,248,254), (66,112,139)),
     "neon_tetra": ((52, 219, 255), (245, 76, 126), (157, 245, 255)),
     "clownfish": ((255, 132, 48), (255, 239, 191), (156, 54, 35)),
     "angelfish": ((242, 229, 175), (97, 208, 220), (147, 118, 94)),
@@ -95,6 +97,10 @@ FISH_COLOURS: dict[str, tuple[RGB, RGB, RGB]] = {
 # Right-facing animation frames. Spaces are transparent; all glyphs are one
 # terminal cell wide so geometry is stable under any monospace font.
 SPRITES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
+    "reef_stalker": (("   _/^^^\\_  ", "<==[## o  )>", "   \\_____/  "),
+                     ("   _/^^^\\_  ", "<~=[## o  )>", "   \\_____/  ")),
+    "reef_hunter": (("      /|       ", "<===---==o___> "),
+                    ("      /|       ", "<~~~---==o___> ")),
     "neon_tetra": (
         ("  __/=>", "<==_o_>"),
         ("  __/=>", "<~=_o_>"),
@@ -183,7 +189,7 @@ def normalise_config(raw: Any) -> dict[str, Any]:
         incoming_species = {}
     species: dict[str, int] = {}
     for key, fallback in default_species.items():
-        species[key] = int(clamp_number(incoming_species.get(key), 0, 20, fallback))
+        species[key] = int(clamp_number(incoming_species.get(key), 0, 3 if key in {"reef_stalker", "reef_hunter"} else 20, fallback))
 
     art = incoming.get("art", {})
     if not isinstance(art, dict):

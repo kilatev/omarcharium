@@ -284,12 +284,13 @@ def main() -> int:
     ecosystem = normalise_ecosystem_config(config.get("ecosystem", {}) if isinstance(config, dict) else {})
     if not isinstance(config, dict) or "ecosystem" not in config:
         ecosystem["startingSeed"] = args.seed
+    initial_settings = model_settings({"ecosystem": ecosystem, "species": config.get("species", {}) if isinstance(config, dict) else {}})
     store = CheckpointStore(
         Path(os.environ.get("OMARCHARIUM_STATE", Path.home() / ".local/state/omarcharium/ecosystem.json")),
         model_to_json, model_from_json,
-        lambda: initial_model(ecosystem["startingSeed"], model_settings({"ecosystem": ecosystem})),
+        lambda: initial_model(ecosystem["startingSeed"], initial_settings),
     )
-    service = EcosystemService(store, seed=ecosystem["startingSeed"], settings=model_settings({"ecosystem": ecosystem}))
+    service = EcosystemService(store, seed=ecosystem["startingSeed"], settings=initial_settings)
     service.simulation_enabled = ecosystem["enabled"]
     service.simulation_speed = ecosystem["simulationSpeed"]
     service.diagnostic_accelerated = ecosystem["diagnosticAccelerated"]

@@ -66,7 +66,7 @@ continues to use focused smoke and live-surface checks.
 14. `tasks/13-fish-personalities.md` — schooling, personalities, and shrimp encounters
 15. `tasks/14-currents-tuning.md` — current events and integrated pacing verification
 
-Tasks 10–11 are complete; tasks 12–14 remain planned. Their product scope, initial tuning
+Tasks 10–12 are complete; tasks 13–14 remain planned. Their product scope, initial tuning
 targets, dependencies, and cross-cutting acceptance criteria are defined in
 [`docs/LIVING_EVENTS_PLAN.md`](docs/LIVING_EVENTS_PLAN.md).
 

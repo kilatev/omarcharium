@@ -11,9 +11,11 @@ import math
 try:
     from scripts.ecosystem_model import Model, Tick, update
     from scripts.ecosystem_food import prepare_food, food_target, consume_food
+    from scripts.ecosystem_hunts import prepare_hunts, hunt_motion, resolve_hunt
 except ModuleNotFoundError:
     from ecosystem_model import Model, Tick, update
     from ecosystem_food import prepare_food, food_target, consume_food
+    from ecosystem_hunts import prepare_hunts, hunt_motion, resolve_hunt
 
 STEP = 0.1
 MAX_CATCHUP = 5.0
@@ -35,6 +37,7 @@ def start_scene(model: Model, kind: str, duration: float) -> Model:
 
 def _step(model: Model) -> Model:
     model = prepare_food(model, STEP)
+    model = prepare_hunts(model, STEP)
     clock = model.world_time
     seconds = round(clock.seconds + STEP, 6)
     remaining = max(0.0, round(clock.scene_remaining - STEP, 6))
@@ -63,8 +66,12 @@ def _step(model: Model) -> Model:
                 force = 0.012 * max(0.1, 1 - distance / 0.035)
                 vx += dx / distance * force
                 vy += dy / distance * force
-        limit = 0.08 if target else 0.03
-        vx, vy = max(-0.08, min(0.08, vx)), max(-limit, min(limit, vy))
+        behavior, target_id = ("feed", target.id) if target else ("cruise", "")
+        override = hunt_motion(model, fish)
+        if override:
+            vx, vy, behavior, target_id = override
+        limit = .15 if override else .08 if target else .03
+        vx, vy = max(-.15, min(.15, vx)), max(-limit, min(limit, vy))
         x, y = fish.x + vx * STEP, fish.y + vy * STEP
         if x < 0.02 or x > 0.98:
             vx = abs(vx) if x < 0.02 else -abs(vx)
@@ -72,8 +79,8 @@ def _step(model: Model) -> Model:
             vy = abs(vy) if y < 0.08 else -abs(vy)
         organisms.append(replace(fish, x=max(0.02, min(0.98, x)),
             y=max(0.08, min(0.92, y)), vx=vx, vy=vy,
-            behavior="feed" if target else "cruise", target=target.id if target else "",
-            cooldown=max(0.0, round(fish.cooldown - STEP, 6))))
+            behavior=behavior, target=target_id,
+            cooldown=8 if behavior == "flee" else max(0.0, round(fish.cooldown - STEP, 6))))
     biology = round(clock.biology_remainder + STEP, 6)
     result = replace(model, organisms=tuple(organisms), world_time=replace(clock,
         seconds=seconds, scene="" if finished else clock.scene,
@@ -81,7 +88,7 @@ def _step(model: Model) -> Model:
         biology_remainder=biology % 60))
     if biology >= 60:
         result = update(result, Tick(1))
-    return consume_food(result)
+    return resolve_hunt(consume_food(result))
 
 
 def advance(model: Model, seconds: float) -> Model:

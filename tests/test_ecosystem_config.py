@@ -13,6 +13,11 @@ from scripts.ecosystem_config import (
 
 
 class EcosystemConfigTests(unittest.TestCase):
+    def test_new_species_starting_population_is_bounded_and_malformed_safe(self):
+        result = model_settings({"species": {"reef_stalker": 999, "reef_hunter": "bad"}})
+        self.assertEqual(result["species"]["reef_stalker"], 3)
+        self.assertEqual(result["species"]["reef_hunter"], 0)
+
     def test_normalization_bounds_controls_and_ignores_malformed_values(self) -> None:
         normalized = normalise_ecosystem_config({
             "enabled": "false", "simulationSpeed": 99, "startingSeed": 2**50,

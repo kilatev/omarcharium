@@ -1,6 +1,6 @@
 # Task 12 — Distinct predators and rare hunts
 
-Status: planned. Depends on task 11.
+Status: complete. Depends on task 11.
 
 ## Objective
 
@@ -34,4 +34,30 @@ Make predation a rare visible sequence with long recovery, following the
 
 ## Completion notes
 
-Not started.
+- Replaced proximity-only predation for every predator with a shared hunt scene:
+  eligibility, 0.7-second preparation, finite pursuit, contact success or miss,
+  and mandatory 120–240 second recovery (180–300 for reef_hunter). Pressure zero
+  cancels/prevents hunts; positive pressure scales opportunities. Satiated fish
+  cannot start. Invalid/missing targets abort without transferring energy.
+- Added reef_stalker and reef_hunter across model, traits, population caps,
+  catalog, defaults, controls, terminal sprites and distinct lock proportions.
+  Existing saves retain their individuals. An explicit reset applies configured
+  populations through the client/service; new worlds default to one stalker.
+- Added predator avoidance, burst escape and gradual species regrouping.
+  Schema 5 persists active hunts and counters; migration accepts schemas 1–4.
+  Biological ticks preserve hunt statistics and never kill prey by proximity.
+- Finite kill energy is capped at 0.25 and 60% of prey energy. Existing metabolism
+  costs only 0.01–0.025 over a full recovery, so a healthy hunter can rest without
+  exhausting its energy solely because of the cooldown. Starvation stays possible.
+- Initial seed 0/1/2 runs, 600 active seconds each: 5 hunts in every run;
+  successes 3/2/1, remaining population 26/27/28; quiet time 85.52%/76.45%/80.52%.
+  Aggregate misses exceed successes (9 vs 6). Task 14 must investigate the lower
+  quiet-time seed and long-run starvation/population balance across 20 seeds.
+- Verification: 115 Python tests pass, including hunt eligibility, contact/miss,
+  missing target, zero pressure, one scene, outside-scene safety, JSON replay,
+  counters, bounded new populations and explicit reset. Generated QML geometry
+  cases and Qt Quick Test pass (3 passes, no skips). Compilation, shell syntax,
+  plugin validation and diff checks pass. QML syntax passes; full-shell lint
+  retains known external-type/import diagnostics.
+- Fukit compliance/diff review found no outstanding task-12 defect. Runtime and
+  installed plugin files remain untouched; live lock testing was not performed.
