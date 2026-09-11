@@ -106,6 +106,11 @@ fixed wall-clock interval guarantees a mutation. Diagnostic acceleration is
 intentionally available for verification and demonstrations, not as the normal
 screensaver setting.
 
+When running `python3 scripts/aquarium.py` directly from a checkout, the
+renderer starts the same shared ecosystem service used by the Quickshell plugin
+if no service is already listening. The service lock still guarantees one world
+and one biological writer.
+
 ## Surface control
 
 **Exit on pointer movement** defaults to on, matching the original screensaver behavior. Disable it to move the pointer without surfacing; mouse clicks and keyboard input always dismiss every monitor instance.

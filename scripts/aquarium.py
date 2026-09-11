@@ -35,11 +35,13 @@ from typing import Any, Iterable
 
 try:
     from scripts.ecosystem_config import normalise_ecosystem_config
+    from scripts.ecosystem_client import ensure_service as ensure_ecosystem_service
     from scripts.ecosystem_client import request as ecosystem_request
     from scripts.ecosystem_model import model_from_json
     from scripts.ecosystem_view import Viewport, view as ecosystem_view, telemetry as ecosystem_telemetry
 except ModuleNotFoundError:  # Direct execution from the scripts directory.
     from ecosystem_config import normalise_ecosystem_config
+    from ecosystem_client import ensure_service as ensure_ecosystem_service
     from ecosystem_client import request as ecosystem_request
     from ecosystem_model import model_from_json
     from ecosystem_view import Viewport, view as ecosystem_view, telemetry as ecosystem_telemetry
@@ -1300,6 +1302,7 @@ def dismiss_screensaver_windows() -> None:
 
 
 def run_interactive(config: dict[str, Any], seed: int, sound_override: bool | None) -> int:
+    ensure_ecosystem_service(Path(__file__).with_name("ecosystem_service.py"))
     width, height = terminal_size()
     scene = OceanScene(width, height, config, seed)
     scene.shared_world = True

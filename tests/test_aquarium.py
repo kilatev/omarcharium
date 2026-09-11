@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from scripts.ecosystem_model import initial_model, model_to_json
@@ -82,6 +83,22 @@ class ConfigurationTests(unittest.TestCase):
 
         defaults = json.loads((ROOT / "defaults.json").read_text(encoding="utf-8"))
         self.assertEqual(config, defaults)
+
+    def test_standalone_service_bootstrap_starts_only_when_snapshot_is_offline(self) -> None:
+        service_path = ROOT / "scripts" / "ecosystem_service.py"
+        with mock.patch(
+            "scripts.ecosystem_client.request",
+            side_effect=[FileNotFoundError("ecosystem.sock"), {"ok": True, "snapshot": {}}],
+        ) as requester, mock.patch("scripts.ecosystem_client.subprocess.Popen") as popen:
+            self.assertTrue(AQUARIUM.ensure_ecosystem_service(service_path, timeout=0.2))
+        self.assertEqual(requester.call_count, 2)
+        popen.assert_called_once_with(
+            [AQUARIUM.ensure_ecosystem_service.__globals__["sys"].executable, "-u", str(service_path)],
+            stdin=AQUARIUM.ensure_ecosystem_service.__globals__["subprocess"].DEVNULL,
+            stdout=AQUARIUM.ensure_ecosystem_service.__globals__["subprocess"].DEVNULL,
+            stderr=AQUARIUM.ensure_ecosystem_service.__globals__["subprocess"].DEVNULL,
+            start_new_session=True,
+        )
 
     def test_image_backdrop_settings_are_normalized(self) -> None:
         config = AQUARIUM.normalise_config({

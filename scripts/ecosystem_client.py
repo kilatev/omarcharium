@@ -6,11 +6,15 @@ import argparse
 import json
 import os
 import socket
+import subprocess
+import sys
+import time
 from pathlib import Path
 from typing import Any
 
 
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024
+SERVICE_START_TIMEOUT = 2.0
 
 
 def default_socket() -> Path:
@@ -39,6 +43,42 @@ def request(payload: dict[str, Any], path: Path | None = None, timeout: float = 
     if not response.get("ok", False):
         raise RuntimeError(str(response.get("error", "service request failed")))
     return response
+
+
+def ensure_service(service_path: Path, *, timeout: float = SERVICE_START_TIMEOUT) -> bool:
+    """Ensure a local renderer-launched service is ready for snapshots.
+
+    The Quickshell plugin normally owns the service process.  Direct execution
+    of ``scripts/aquarium.py`` has no Quickshell parent, so it starts the same
+    service only when the shared socket is unavailable.  The service lock keeps
+    this safe when another owner starts concurrently.
+    """
+
+    try:
+        request({"operation": "snapshot"}, timeout=0.08)
+        return True
+    except (OSError, RuntimeError, TypeError, ValueError):
+        pass
+
+    try:
+        subprocess.Popen(
+            [sys.executable, "-u", str(service_path)],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except OSError:
+        return False
+
+    deadline = time.monotonic() + max(0.1, timeout)
+    while time.monotonic() < deadline:
+        try:
+            request({"operation": "snapshot"}, timeout=0.08)
+            return True
+        except (OSError, RuntimeError, TypeError, ValueError):
+            time.sleep(0.05)
+    return False
 
 
 def main() -> int:
