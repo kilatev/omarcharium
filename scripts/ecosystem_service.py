@@ -263,7 +263,7 @@ class ServiceRuntime:
 
 def _default_paths() -> tuple[Path, Path]:
     runtime = os.environ.get("XDG_RUNTIME_DIR")
-    if not runtime or not os.path.isabs(runtime):
+    if not runtime or not os.path.isabs(runtime) or not os.access(runtime, os.W_OK):
         runtime = f"/tmp/omarcharium-{os.getuid()}"
     root = Path(runtime) / "omarcharium"
     return root / "ecosystem.sock", root / "ecosystem.lock"

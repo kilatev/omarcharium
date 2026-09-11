@@ -15,7 +15,7 @@ MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 
 def default_socket() -> Path:
     runtime = os.environ.get("XDG_RUNTIME_DIR")
-    if not runtime or not os.path.isabs(runtime):
+    if not runtime or not os.path.isabs(runtime) or not os.access(runtime, os.W_OK):
         runtime = f"/tmp/omarcharium-{os.getuid()}"
     return Path(runtime) / "omarcharium" / "ecosystem.sock"
 

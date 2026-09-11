@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import json
+import os
 import socket
 import tempfile
 import threading
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from scripts.ecosystem_checkpoint import CheckpointStore
 from scripts.ecosystem_model import Model, initial_model, model_from_json, model_to_json
-from scripts.ecosystem_service import EcosystemService, ServiceProtocolError, ServiceRuntime
+from scripts.ecosystem_service import EcosystemService, ServiceProtocolError, ServiceRuntime, _default_paths
 
 
 class FakeStore:
@@ -27,6 +29,14 @@ class FakeStore:
 
 
 class EcosystemServiceTests(unittest.TestCase):
+    def test_default_runtime_falls_back_when_xdg_runtime_is_not_writable(self) -> None:
+        with mock.patch.dict("os.environ", {"XDG_RUNTIME_DIR": "/run/user/test"}), mock.patch(
+            "scripts.ecosystem_service.os.access", return_value=False
+        ):
+            socket_path, lock_path = _default_paths()
+        self.assertEqual(socket_path, Path(f"/tmp/omarcharium-{os.getuid()}") / "omarcharium" / "ecosystem.sock")
+        self.assertEqual(lock_path.name, "ecosystem.lock")
+
     def test_motion_biology_settings_and_pause_are_independent_of_readers(self):
         service = EcosystemService(FakeStore(initial_model(3)), clock=lambda: 60.0)
         service.start(0)
