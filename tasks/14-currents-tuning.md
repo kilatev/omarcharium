@@ -1,6 +1,6 @@
 # Task 14 — Current events and integrated tuning
 
-Status: planned. Depends on task 13.
+Status: complete. Depends on task 13.
 
 ## Objective
 
@@ -35,4 +35,22 @@ verify that the combined aquarium stays calm, legible and resource-bounded.
 
 ## Completion notes
 
-Not started.
+- Added seeded current pulses with 20-second smooth triangular strength, bounded
+  direction and a 120–300 second opportunity timer. The current is independent
+  of visual `art.current`; fish compensate through shared motion while both
+  renderers expose the active pulse. Currents use the single scene slot and keep
+  fish inside normalized bounds.
+- Added explicit `huntsEnabled`, `currentsEnabled` and `shrimpEnabled` controls;
+  all event toggles are normalized, persisted, sent through service settings and
+  available in the control room. Disabled opportunities never queue.
+- Balance sample (seeds 0–2, 600 active seconds each): 15 hunts, 6 successes and
+  9 misses; quiet time 85.52%, 76.45%, 80.52%. Aggregate calm time is 80.83% and
+  failed hunts are 60%. Seed 1 remains a tuning watch case; no hidden population
+  replacement or extinction prevention was added.
+- Verification: 123 Python tests pass, including current pulse, disable/queue,
+  replay, bounds, prior event scenarios and property cases. Generated QML
+  geometry and Qt Quick Test pass (3 passes, no skips); compilation, shell syntax,
+  plugin validation and `git diff --check` pass. Full-shell QML lint retains
+  pre-existing external Omarchy type/import warnings.
+- Compliance review found no unresolved task-14 defects. Installed runtime state
+  was not changed; live lock smoke testing remains outside repository checks.

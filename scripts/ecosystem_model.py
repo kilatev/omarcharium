@@ -14,7 +14,7 @@ from collections.abc import Mapping
 from typing import Any
 
 
-MODEL_SCHEMA_VERSION = 5
+MODEL_SCHEMA_VERSION = 6
 LEGACY_MODEL_SCHEMA_VERSION = 1
 SPECIES = (
     "neon_tetra",
@@ -127,6 +127,9 @@ class WorldTime:
     food_in: float = 90.0
     hunt_in: float = 45.0
     shrimp_in: float = 180.0
+    current_in: float = 120.0
+    current_strength: float = 0.0
+    current_direction: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -273,6 +276,8 @@ def _settings(settings: Mapping[str, Any] | None, *, normalize: bool = True) -> 
         "predator_pressure": _number(incoming.get("predator_pressure", 1.0), name="predator_pressure", minimum=0.0, maximum=2.0),
         "food_drops": incoming.get("food_drops", True) is True,
         "shrimp_enabled": incoming.get("shrimp_enabled", True) is True,
+        "currents_enabled": incoming.get("currents_enabled", True) is True,
+        "hunts_enabled": incoming.get("hunts_enabled", True) is True,
     }
 
 
@@ -637,8 +642,8 @@ def model_from_json(payload: Any) -> Model:
     world_time = WorldTime(**{
         key: (_choice(raw_time.get(key, default), ("", "food", "hunt", "shrimp", "current"), key)
               if key == "scene" else _number(raw_time.get(key, default), name=key,
-                  minimum=0, maximum={"remainder": 0.1, "biology_remainder": 60,
-                                      "scene_remaining": 3600, "quiet_remaining": 3600, "food_in": 3600, "hunt_in": 3600, "shrimp_in": 3600}.get(key, float("inf"))))
+                  minimum=-1 if key == "current_direction" else 0, maximum={"remainder": 0.1, "biology_remainder": 60,
+                                      "scene_remaining": 3600, "quiet_remaining": 3600, "food_in": 3600, "hunt_in": 3600, "shrimp_in": 3600, "current_in": 3600, "current_strength": 1}.get(key, 1 if key == "current_direction" else float("inf"))))
         for key, default in WorldTime().__dict__.items()
     })
     raw_shelters = root.get("shelters", [item.__dict__ for item in DEFAULT_SHELTERS])

@@ -12,12 +12,12 @@ try:
     from scripts.ecosystem_model import Model, Tick, update
     from scripts.ecosystem_food import prepare_food, food_target, consume_food
     from scripts.ecosystem_hunts import prepare_hunts, hunt_motion, resolve_hunt
-    from scripts.ecosystem_personalities import update_shrimp, behavior_motion
+    from scripts.ecosystem_personalities import update_shrimp, update_current, behavior_motion
 except ModuleNotFoundError:
     from ecosystem_model import Model, Tick, update
     from ecosystem_food import prepare_food, food_target, consume_food
     from ecosystem_hunts import prepare_hunts, hunt_motion, resolve_hunt
-    from ecosystem_personalities import update_shrimp, behavior_motion
+    from ecosystem_personalities import update_shrimp, update_current, behavior_motion
 
 STEP = 0.1
 MAX_CATCHUP = 5.0
@@ -41,6 +41,7 @@ def _step(model: Model) -> Model:
     model = prepare_food(model, STEP)
     model = prepare_hunts(model, STEP)
     model = update_shrimp(model, STEP)
+    model = update_current(model, STEP)
     clock = model.world_time
     seconds = round(clock.seconds + STEP, 6)
     remaining = max(0.0, round(clock.scene_remaining - STEP, 6))
@@ -74,6 +75,9 @@ def _step(model: Model) -> Model:
         personality_override = behavior_motion(model, fish)
         if personality_override and not override:
             override = personality_override
+        flow = model.world_time.current_strength * model.world_time.current_direction
+        if not override and abs(flow) > 0:
+            vx += flow * .018
         if override:
             vx, vy, behavior, target_id = override
         limit = .15 if override else .08 if target else .03
@@ -91,7 +95,8 @@ def _step(model: Model) -> Model:
     result = replace(model, organisms=tuple(organisms), world_time=replace(clock,
         seconds=seconds, scene="" if finished else clock.scene,
         scene_remaining=remaining, quiet_remaining=quiet,
-        biology_remainder=biology % 60))
+        biology_remainder=biology % 60,
+        current_strength=0.0 if finished and clock.scene == "current" else clock.current_strength))
     if biology >= 60:
         result = update(result, Tick(1))
     return resolve_hunt(consume_food(result))

@@ -17,6 +17,8 @@ DEFAULT_ECOSYSTEM_CONFIG = {
     "predatorPressure": 1.0,
     "foodDrops": True,
     "shrimpEnabled": True,
+    "currentsEnabled": True,
+    "huntsEnabled": True,
     "diagnosticAccelerated": False,
 }
 CONTROL_KEYS = frozenset(DEFAULT_ECOSYSTEM_CONFIG)
@@ -51,6 +53,8 @@ def normalise_ecosystem_config(raw: Any) -> dict[str, Any]:
         "predatorPressure": round(_number(incoming.get("predatorPressure"), 1.0, 0.0, 2.0), 4),
         "foodDrops": incoming.get("foodDrops", True) is True,
         "shrimpEnabled": incoming.get("shrimpEnabled", True) is True,
+        "currentsEnabled": incoming.get("currentsEnabled", True) is True,
+        "huntsEnabled": incoming.get("huntsEnabled", True) is True,
         "diagnosticAccelerated": incoming.get("diagnosticAccelerated", False) is True,
     }
 
@@ -81,6 +85,8 @@ def model_settings(config: Mapping[str, Any]) -> dict[str, Any]:
         "predator_pressure": ecosystem["predatorPressure"],
         "food_drops": ecosystem["foodDrops"],
         "shrimp_enabled": ecosystem["shrimpEnabled"],
+        "currents_enabled": ecosystem["currentsEnabled"],
+        "hunts_enabled": ecosystem["huntsEnabled"],
     }
     if isinstance(config.get("species"), Mapping):
         try:

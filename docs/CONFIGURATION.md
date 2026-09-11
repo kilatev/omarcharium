@@ -232,3 +232,13 @@ and increments `shrimpCatches`; it is separate from fish death statistics. There
 is no shrimp reproduction. Disabling shrimp prevents new appearances while an
 existing shrimp can still flee, be caught, or expire. Checkpoints preserve the
 active shrimp and timer.
+
+## Currents and event controls
+
+`ecosystem.currentsEnabled` and `ecosystem.huntsEnabled` default to `true` and
+are independent of visual `art.current`. A current pulse lasts 20 active seconds,
+ramp ups and down, and then observes a seeded 120–300 second interval. It shares
+the single major-scene slot with food, hunts and shrimp, so quiet periods prevent
+overlapping scenes. Simulation speed scales all biological timers; disabling an
+event skips future opportunities without queuing them. In-flight entities finish
+or abort through their normal bounded cleanup paths.

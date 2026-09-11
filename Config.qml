@@ -23,7 +23,7 @@ Item {
     ecosystem: {
       enabled: true, simulationSpeed: 1.0, startingSeed: 7,
       foodAbundance: 1.0, mutationRate: 0.08, predatorPressure: 1.0,
-      diagnosticAccelerated: false, foodDrops: true, shrimpEnabled: true
+      diagnosticAccelerated: false, foodDrops: true, shrimpEnabled: true, currentsEnabled: true, huntsEnabled: true
     }
   })
   property var speciesDefinitions: [
@@ -124,6 +124,8 @@ Item {
     next.ecosystem.predatorPressure = Math.round(clamp(ecosystem.predatorPressure, 0, 2, defaults.ecosystem.predatorPressure) * 10000) / 10000
     next.ecosystem.foodDrops = ecosystem.foodDrops === undefined ? true : ecosystem.foodDrops === true
     next.ecosystem.shrimpEnabled = ecosystem.shrimpEnabled === undefined ? true : ecosystem.shrimpEnabled === true
+    next.ecosystem.currentsEnabled = ecosystem.currentsEnabled === undefined ? true : ecosystem.currentsEnabled === true
+    next.ecosystem.huntsEnabled = ecosystem.huntsEnabled === undefined ? true : ecosystem.huntsEnabled === true
     next.ecosystem.diagnosticAccelerated = ecosystem.diagnosticAccelerated === undefined ? defaults.ecosystem.diagnosticAccelerated : !!ecosystem.diagnosticAccelerated
     return next
   }
@@ -235,6 +237,8 @@ Item {
       predator_pressure: config.ecosystem.predatorPressure,
       food_drops: config.ecosystem.foodDrops,
       shrimp_enabled: config.ecosystem.shrimpEnabled,
+      currents_enabled: config.ecosystem.currentsEnabled,
+      hunts_enabled: config.ecosystem.huntsEnabled,
       diagnostic_accelerated: config.ecosystem.diagnosticAccelerated
     })])
     statusLine = "ECOSYSTEM RESET REQUESTED"
@@ -250,6 +254,8 @@ Item {
     ecosystem.predator_pressure = ecosystem.predatorPressure
     ecosystem.food_drops = ecosystem.foodDrops
     ecosystem.shrimp_enabled = ecosystem.shrimpEnabled
+    ecosystem.currents_enabled = ecosystem.currentsEnabled
+    ecosystem.hunts_enabled = ecosystem.huntsEnabled
     ecosystem.diagnostic_accelerated = ecosystem.diagnosticAccelerated
     Quickshell.execDetached(["python3", pluginDir + "/scripts/ecosystem_client.py", "settings", "--settings", JSON.stringify(ecosystem)])
   }
@@ -1190,6 +1196,22 @@ Item {
             Text { x: 16; anchors.verticalCenter: parent.verticalCenter; text: "RARE SHRIMP ENCOUNTERS"; color: "#d7eef2"; font.family: root.fontFamily; font.pixelSize: 12 }
             Text { anchors { right: parent.right; rightMargin: 18; verticalCenter: parent.verticalCenter } text: root.config.ecosystem.shrimpEnabled ? "ON" : "OFF"; color: root.accent }
             MouseArea { anchors.fill: parent; onClicked: root.changeEcosystem("shrimpEnabled", !root.config.ecosystem.shrimpEnabled) }
+          }
+          Rectangle {
+            width: parent.width; height: 58; radius: 11
+            color: root.config.ecosystem.huntsEnabled ? "#241bb8c8" : "#160c252d"
+            border.color: root.accent
+            Text { x: 16; anchors.verticalCenter: parent.verticalCenter; text: "RARE PREDATOR HUNTS"; color: "#d7eef2"; font.family: root.fontFamily; font.pixelSize: 12 }
+            Text { anchors { right: parent.right; rightMargin: 18; verticalCenter: parent.verticalCenter } text: root.config.ecosystem.huntsEnabled ? "ON" : "OFF"; color: root.accent }
+            MouseArea { anchors.fill: parent; onClicked: root.changeEcosystem("huntsEnabled", !root.config.ecosystem.huntsEnabled) }
+          }
+          Rectangle {
+            width: parent.width; height: 58; radius: 11
+            color: root.config.ecosystem.currentsEnabled ? "#241bb8c8" : "#160c252d"
+            border.color: root.accent
+            Text { x: 16; anchors.verticalCenter: parent.verticalCenter; text: "CURRENT EVENTS"; color: "#d7eef2"; font.family: root.fontFamily; font.pixelSize: 12 }
+            Text { anchors { right: parent.right; rightMargin: 18; verticalCenter: parent.verticalCenter } text: root.config.ecosystem.currentsEnabled ? "ON" : "OFF"; color: root.accent }
+            MouseArea { anchors.fill: parent; onClicked: root.changeEcosystem("currentsEnabled", !root.config.ecosystem.currentsEnabled) }
           }
           Rectangle {
             width: parent.width; height: 44; radius: 8

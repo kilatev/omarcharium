@@ -48,6 +48,26 @@ def update_shrimp(model: Model, dt: float) -> Model:
                    world_time=replace(model.world_time, shrimp_in=rng.uniform(180, 360), scene="shrimp", scene_remaining=20))
 
 
+def update_current(model: Model, dt: float) -> Model:
+    """Start a bounded current pulse and smoothly ramp its force."""
+    clock = model.world_time
+    timer = max(0.0, round(clock.current_in - dt, 6))
+    strength = clock.current_strength
+    if clock.scene == "current":
+        progress = max(0.0, min(1.0, clock.scene_remaining / 20.0))
+        strength = min(1.0, 0.18 + 0.65 * (1 - abs(progress * 2 - 1)))
+        return replace(model, world_time=replace(clock, current_strength=round(strength, 6)))
+    if timer > 0 or clock.scene or clock.quiet_remaining > 0 or not model.settings["currents_enabled"]:
+        if timer == 0 and not model.settings["currents_enabled"]:
+            timer = 180.0
+        return replace(model, world_time=replace(clock, current_in=timer, current_strength=0.0))
+    rng = random.Random(0); rng.setstate(model.random_state)
+    direction = -1.0 if rng.random() < .5 else 1.0
+    return replace(model, random_state=rng.getstate(), world_time=replace(clock,
+        current_in=rng.uniform(120, 300), current_strength=.18,
+        current_direction=direction, scene="current", scene_remaining=20))
+
+
 def behavior_motion(model: Model, fish):
     kind = personality(fish)
     if model.shrimp and kind == "curious" and fish.species not in PREDATORS:

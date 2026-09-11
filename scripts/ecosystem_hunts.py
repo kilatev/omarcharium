@@ -56,7 +56,7 @@ def prepare_hunts(model: Model, dt: float) -> Model:
     rng.setstate(model.random_state)
     clock = replace(clock, hunt_in=round(rng.uniform(45, 90) / max(.25, model.settings["predator_pressure"]), 6))
     model = replace(model, world_time=clock, random_state=rng.getstate())
-    if clock.scene or clock.quiet_remaining > 0 or model.settings["predator_pressure"] <= 0:
+    if clock.scene or clock.quiet_remaining > 0 or model.settings["predator_pressure"] <= 0 or not model.settings["hunts_enabled"]:
         return model
     candidates = []
     for predator in model.organisms:

@@ -46,6 +46,8 @@
     "predatorPressure": 1.0,
     "foodDrops": true,
     "shrimpEnabled": true,
+    "currentsEnabled": true,
+    "huntsEnabled": true,
     "diagnosticAccelerated": false
   }
 }

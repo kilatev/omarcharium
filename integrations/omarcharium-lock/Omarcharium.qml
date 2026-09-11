@@ -60,6 +60,15 @@ DesignBase {
             var cw = width / f.width, ch = height / f.height
             var scale = Math.min(cw, ch)
             var crumbs = f.crumbs || []
+            if ((f.currentStrength || 0) > 0.05) {
+                ctx.fillStyle = "#73c9d8"
+                ctx.globalAlpha = Math.min(0.7, f.currentStrength)
+                for (var a = 0; a < 5; ++a) {
+                    var ax = width * (0.2 + a * 0.15)
+                    ctx.fillRect(ax, height * 0.18 + a * scale, scale * 2, scale * 0.12)
+                }
+                ctx.globalAlpha = 1
+            }
             ctx.fillStyle = "#f7d994"
             for (var c = 0; c < crumbs.length; ++c) {
                 var crumb = Geometry.point(crumbs[c], f, width, height)

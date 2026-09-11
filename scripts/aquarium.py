@@ -715,6 +715,9 @@ class OceanScene:
             x, y = round(shelter["x"]), round(shelter["y"])
             canvas.text(x - 2, y - 1, "\\|/", self.palette["coral"])
             canvas.text(x - 2, y, "(_Y_)", self.palette["rock"])
+        if frame["currentStrength"] > 0.05:
+            glyph = ">>" if frame["currentDirection"] > 0 else "<<"
+            canvas.text(max(0, round(self.width * .5) - 1), 3, glyph, self.palette["water"])
         for fish in sorted(frame["organisms"], key=lambda item: item["y"]):
             lines = SPRITES[fish["species"]][int(frame["seconds"] * 3) & 1]
             if fish["direction"] < 0:

@@ -50,7 +50,7 @@ expanded.
 11. **Living events** — shared visible movement, autonomous food drops, distinct
     predators with rare hunts, personalities, shrimp encounters, and currents.
     Shared motion, food drops and rare hunts (tasks 10–12) complete;
-    Personalities complete (task 13); integrated tuning (task 14) planned.
+    Personalities and integrated event tuning (tasks 13–14) complete.
     See the [event plan](LIVING_EVENTS_PLAN.md).
 
 The ecosystem core, pure view, runtime service, configuration, terminal

@@ -23,6 +23,20 @@ class MotionProperties(unittest.TestCase):
         self.assertTrue(all(0 <= f.energy <= 1 and f.cooldown >= 0 for f in left.organisms))
 
     @settings(max_examples=20, deadline=None, print_blob=True)
+    @given(st.integers(-10000, 10000), st.integers(1, 50))
+    def test_current_motion_stays_bounded_and_replayable(self, seed, steps):
+        original = initial_model(seed)
+        original = replace(original, world_time=replace(original.world_time, current_in=0,
+            quiet_remaining=0, food_in=1000, hunt_in=1000, shrimp_in=1000))
+        left = right = original
+        for _ in range(steps):
+            left = update(left, Advance(.1))
+            right = update(model_from_json(model_to_json(right)), Advance(.1))
+        self.assertEqual(left, right)
+        self.assertTrue(all(0 <= fish.x <= 1 and 0 <= fish.y <= 1 for fish in left.organisms))
+        self.assertTrue(0 <= left.world_time.current_strength <= 1)
+
+    @settings(max_examples=20, deadline=None, print_blob=True)
     @given(st.integers(-10000, 10000), st.integers(1, 10))
     def test_food_scene_roundtrip_energy_and_entity_bounds(self, seed, steps):
         original = initial_model(seed)

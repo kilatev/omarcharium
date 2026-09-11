@@ -131,6 +131,8 @@ def view(model: Model, viewport: Viewport) -> dict[str, Any]:
         "tick": model.tick,
         "seconds": model.world_time.seconds,
         "scene": model.world_time.scene,
+        "currentStrength": model.world_time.current_strength,
+        "currentDirection": model.world_time.current_direction,
         "crumbs": [{"id": c.id, "x": c.x * viewport.width, "y": c.y * viewport.height,
                     "amount": c.amount} for c in model.crumbs],
         "shrimp": [{"id": s.id, "x": s.x * viewport.width, "y": s.y * viewport.height,
