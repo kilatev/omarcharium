@@ -158,7 +158,7 @@ class RendererTests(unittest.TestCase):
             "resourceAmount": 18.5,
             "foodAbundance": 1.0,
             "predatorPressure": 1.0,
-            "mutationRate": 0.08,
+            "mutationRate": 0.20,
             "speciesPopulation": {"neon_tetra": 10},
         }
         status = scene.render().plain()

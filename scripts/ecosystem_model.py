@@ -56,16 +56,16 @@ MAX_POPULATION = {
 HERBIVORES = frozenset(("neon_tetra", "clownfish", "discus", "royal_tang"))
 PREDATORS = frozenset(("angelfish", "butterflyfish", "betta", "puffer", "reef_stalker", "reef_hunter"))
 RESOURCE_REGENERATION = 0.20
-METABOLISM = 0.005
-RESOURCE_MEAL = 0.02
+METABOLISM = 0.0015
+RESOURCE_MEAL = 0.03
 PREDATOR_MEAL = 0.10
-FEEDING_RADIUS = 0.16
+FEEDING_RADIUS = 0.20
 PREDATION_RADIUS = 0.12
-MATURITY_AGE = 720  # biological minutes; twelve hours at the default pace
+MATURITY_AGE = 60  # biological minutes; one hour at the default pace
 REPRODUCTION_ENERGY = 0.72
 REPRODUCTION_COST = 0.28
-REPRODUCTION_COOLDOWN = 240  # four biological hours
-MUTATION_RATE = 0.08
+REPRODUCTION_COOLDOWN = 30  # thirty biological minutes
+MUTATION_RATE = 0.20
 MUTATION_STEP = 0.12
 
 # Traits remain inside these species-specific ecological niches.  Mutation can

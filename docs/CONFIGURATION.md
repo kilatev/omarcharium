@@ -89,7 +89,7 @@ before persistence and do not alter art, backdrop, sound, or integration setting
 | `simulationSpeed` | 0.1–4.0× | 1.0× | Fixed-tick rate multiplier |
 | `startingSeed` | signed 32-bit integer | 7 | Seed used by an explicit ecosystem reset |
 | `foodAbundance` | 0–2.0× | 1.0× | Resource regeneration abundance |
-| `mutationRate` | 0–1.0 | 0.08 | Probability of bounded trait mutation |
+| `mutationRate` | 0–1.0 | 0.20 | Probability of bounded trait mutation at each birth |
 | `predatorPressure` | 0–2.0× | 1.0× | Predator feeding pressure |
 | `diagnosticAccelerated` | On/off | Off | Enables intentionally accelerated simulation diagnostics |
 
@@ -99,9 +99,12 @@ while preserving visual and audio configuration. The service remains the only
 writer of biological state.
 
 Normal simulation time advances in one biological minute per wall-clock minute.
-This keeps maturity and reproduction on an hours-scale cadence. Diagnostic
-acceleration is intentionally available for verification and demonstrations, not
-as the normal screensaver setting.
+The arcade defaults make organisms mature after about one hour and allow another
+birth after roughly thirty biological minutes. Mutation is still probabilistic:
+the 20% rate is evaluated independently for each inherited trait at birth, so no
+fixed wall-clock interval guarantees a mutation. Diagnostic acceleration is
+intentionally available for verification and demonstrations, not as the normal
+screensaver setting.
 
 ## Surface control
 
@@ -152,7 +155,7 @@ as the normal screensaver setting.
     "simulationSpeed": 1.0,
     "startingSeed": 7,
     "foodAbundance": 1.0,
-    "mutationRate": 0.08,
+    "mutationRate": 0.20,
     "predatorPressure": 1.0,
     "diagnosticAccelerated": false
   }

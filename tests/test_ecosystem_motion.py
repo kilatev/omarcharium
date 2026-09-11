@@ -6,6 +6,14 @@ from scripts.ecosystem_motion import start_scene
 
 
 class MotionTests(unittest.TestCase):
+    def test_moving_world_reaches_first_reproduction_window(self):
+        """The service's movement path must reach arcade reproduction pacing."""
+
+        model = initial_model(7)
+        for _ in range(12 * 120):
+            model = update(model, Advance(5.0))
+        self.assertGreater(model.statistics.births, 0)
+
     def test_fractional_steps_replay_and_restart(self):
         model = initial_model(7)
         before = model_to_json(model)

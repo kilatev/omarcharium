@@ -45,10 +45,12 @@ updates. Normal checkpoints occur no more than once every five minutes; reset,
 simulation-setting changes, explicit saves, and clean shutdown force a checkpoint.
 
 The default service cadence is one fixed biological minute every 60 wall-clock
-seconds. Maturity is 720 biological minutes (12 hours) and reproduction cooldown
-is 240 biological minutes (4 hours). The optional diagnostic acceleration multiplies
-the cadence by 10; normal operation therefore remains suitable for hours- or
-days-long unattended sessions.
+seconds. The arcade pacing target matures organisms after 60 biological minutes
+(about one hour) and uses a 30-minute reproduction cooldown. Feeding uses a lower
+metabolic drain and larger resource meals so moving fish can reach reproduction;
+food-disabled worlds can still starve and go extinct. The default mutation rate
+is 20% per inherited trait at birth, so mutations remain probabilistic. Optional
+diagnostic acceleration multiplies the cadence by 10.
 
 `scripts/ecosystem_service.py` owns the process boundary. It advances fixed-size
 ticks from monotonic elapsed time, serves newline-delimited JSON requests over a

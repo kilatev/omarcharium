@@ -42,7 +42,7 @@ class EcosystemModelTests(unittest.TestCase):
                       (Organism("fish", "neon_tetra", 0.5, 0.5, 0.5),), model.random_state)
         next_model = update(model, Tick(1.0))
         self.assertLess(next_model.resources[0].amount, 1.0)
-        self.assertGreater(next_model.organisms[0].energy, 0.5 - 0.005)
+        self.assertGreater(next_model.organisms[0].energy, 0.5 - 0.0015)
 
     def test_biological_tick_never_kills_by_proximity_and_starvation_is_bounded(self) -> None:
         model = self._empty_model(2)
@@ -158,6 +158,18 @@ class EcosystemModelTests(unittest.TestCase):
         self.assertEqual(next_model.statistics.births, 1)
         self.assertEqual(next_model.statistics.mutation_events, 1)
 
+    def test_arcade_pacing_produces_mutations_across_seeded_runs(self) -> None:
+        mutation_runs = 0
+        births = 0
+        for seed in range(20):
+            model = initial_model(seed)
+            for _ in range(120):
+                model = update(model, Tick(1.0))
+            births += model.statistics.births
+            mutation_runs += model.statistics.mutation_events > 0
+        self.assertGreater(births, 100)
+        self.assertGreaterEqual(mutation_runs, 18)
+
     def test_reproduction_is_bounded_and_cooldown_prevents_immediate_growth(self) -> None:
         model = self._empty_model(5)
         parents = tuple(
@@ -175,7 +187,7 @@ class EcosystemModelTests(unittest.TestCase):
         model = self._empty_model(6)
         lone = Organism("organism-0001", "betta", 0.5, 0.5, 0.2, 0, 0, 0.1, 0.8)
         model = Model(model.schema_version, model.seed, model.tick, model.settings, (), (lone,), model.random_state)
-        for _ in range(50):
+        for _ in range(140):
             model = update(model, Tick(1.0))
         self.assertEqual(model.organisms, ())
 

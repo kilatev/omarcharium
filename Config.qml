@@ -22,7 +22,7 @@ Item {
     integration: { idleEnabled: true, exitOnPointerMotion: true },
     ecosystem: {
       enabled: true, simulationSpeed: 1.0, startingSeed: 7,
-      foodAbundance: 1.0, mutationRate: 0.08, predatorPressure: 1.0,
+      foodAbundance: 1.0, mutationRate: 0.20, predatorPressure: 1.0,
       diagnosticAccelerated: false, foodDrops: true, shrimpEnabled: true, currentsEnabled: true, huntsEnabled: true
     }
   })
