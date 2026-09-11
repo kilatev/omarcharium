@@ -399,7 +399,9 @@ class EvolutionTelemetry:
     """Poll the shared service for cached, read-only evolution telemetry."""
 
     POLL_INTERVAL = 0.1
-    REQUEST_TIMEOUT = 0.02
+    # The service loop polls its socket every 50 ms; leave enough margin for
+    # one poll while still keeping the terminal renderer responsive.
+    REQUEST_TIMEOUT = 0.08
 
     def __init__(self, requester: Any = ecosystem_request) -> None:
         self.requester = requester
@@ -422,6 +424,9 @@ class EvolutionTelemetry:
             self.error = ""
         except (OSError, RuntimeError, TypeError, ValueError, KeyError):
             self.data = None
+            # Never pin the terminal to a stale shared frame.  OceanScene uses
+            # a missing model as the explicit signal to animate its local fish.
+            self.model = None
             self.error = "EVO OFFLINE"
         return True
 
