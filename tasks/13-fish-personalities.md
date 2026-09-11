@@ -1,6 +1,6 @@
 # Task 13 — Personalities and shrimp encounters
 
-Status: planned. Depends on task 12.
+Status: complete. Depends on task 12.
 
 ## Objective
 
@@ -30,4 +30,18 @@ Add small individual stories between major events, following the
 
 ## Completion notes
 
-Not started.
+- Added deterministic personality projection from existing bounded traits:
+  aggressive fish are territorial, high diet-preference fish are curious, and
+  others are shy. Territorial displacement and curious exploration are short
+  nonlethal motion overrides and yield to active threat avoidance or hunts.
+- Added one bounded temporary shrimp with seeded bottom spawning, shelter-facing
+  escape, expiration, and optional predator consumption. Shrimp catches transfer
+  finite energy and increment separate telemetry; they do not increment fish
+  deaths or reproduce. Persistence accepts at most one shrimp and migrates older
+  checkpoints with an empty list.
+- Added shared terminal/lock projection, `shrimpEnabled` defaults and control
+  plumbing, and JSON-safe counters. The existing scene slot prevents concurrent
+  major scenes and keeps shrimp encounters rare.
+- Verification: personality, exploration, territorial, escape, catch, expiration,
+  missing cleanup, replay and no-death tests pass. Full suite and generated QML
+  checks recorded with task 14.

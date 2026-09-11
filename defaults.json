@@ -45,6 +45,7 @@
     "mutationRate": 0.08,
     "predatorPressure": 1.0,
     "foodDrops": true,
+    "shrimpEnabled": true,
     "diagnosticAccelerated": false
   }
 }

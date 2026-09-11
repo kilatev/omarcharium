@@ -709,6 +709,8 @@ class OceanScene:
             return
         for crumb in frame["crumbs"]:
             canvas.put(round(crumb["x"]), round(crumb["y"]), "·", self.palette["caustic"])
+        for shrimp in frame["shrimp"]:
+            canvas.put(round(shrimp["x"]), round(shrimp["y"]), "<" if shrimp["fleeing"] else "~", self.palette["sand"])
         for shelter in frame["shelters"]:
             x, y = round(shelter["x"]), round(shelter["y"])
             canvas.text(x - 2, y - 1, "\\|/", self.palette["coral"])

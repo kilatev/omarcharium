@@ -67,6 +67,12 @@ DesignBase {
                 ctx.arc(crumb.x, crumb.y, Math.max(2, scale * 0.18), 0, Math.PI * 2)
                 ctx.fill()
             }
+            var shrimp = f.shrimp || []
+            ctx.fillStyle = "#d9ad76"
+            for (var sh = 0; sh < shrimp.length; ++sh) {
+                var point = Geometry.point(shrimp[sh], f, width, height)
+                ctx.fillRect(point.x - scale * 0.35, point.y - scale * 0.12, scale * 0.7, scale * 0.24)
+            }
             var shelters = f.shelters || []
             for (var s = 0; s < shelters.length; ++s) {
                 var shelter = shelters[s]

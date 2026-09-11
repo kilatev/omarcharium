@@ -126,6 +126,7 @@ class WorldTime:
     quiet_remaining: float = 30.0
     food_in: float = 90.0
     hunt_in: float = 45.0
+    shrimp_in: float = 180.0
 
 
 @dataclass(frozen=True)
@@ -146,6 +147,15 @@ class Crumb:
 
 
 @dataclass(frozen=True)
+class Shrimp:
+    id: str
+    x: float
+    y: float
+    lifetime: float = 45.0
+    fleeing: bool = False
+
+
+@dataclass(frozen=True)
 class Shelter:
     id: str
     x: float
@@ -163,6 +173,7 @@ class EvolutionStats:
     mutation_events: int = 0
     hunts: int = 0
     hunt_successes: int = 0
+    shrimp_catches: int = 0
 
 
 @dataclass(frozen=True)
@@ -179,6 +190,7 @@ class Model:
     shelters: tuple[Shelter, ...] = DEFAULT_SHELTERS
     crumbs: tuple[Crumb, ...] = ()
     hunt: Hunt = Hunt()
+    shrimp: tuple[Shrimp, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -260,6 +272,7 @@ def _settings(settings: Mapping[str, Any] | None, *, normalize: bool = True) -> 
         "mutation_rate": _number(incoming.get("mutation_rate", MUTATION_RATE), name="mutation_rate", minimum=0.0, maximum=1.0),
         "predator_pressure": _number(incoming.get("predator_pressure", 1.0), name="predator_pressure", minimum=0.0, maximum=2.0),
         "food_drops": incoming.get("food_drops", True) is True,
+        "shrimp_enabled": incoming.get("shrimp_enabled", True) is True,
     }
 
 
@@ -519,12 +532,14 @@ def model_to_json(model: Model) -> dict[str, Any]:
             "mutationEvents": model.statistics.mutation_events,
             "hunts": model.statistics.hunts,
             "huntSuccesses": model.statistics.hunt_successes,
+            "shrimpCatches": model.statistics.shrimp_catches,
         },
         "randomState": _json_value(model.random_state),
         "worldTime": model.world_time.__dict__.copy(),
         "shelters": [item.__dict__.copy() for item in model.shelters],
         "crumbs": [item.__dict__.copy() for item in model.crumbs],
         "hunt": model.hunt.__dict__.copy(),
+        "shrimp": [item.__dict__.copy() for item in model.shrimp],
     }
     return _json_value(payload)
 
@@ -623,7 +638,7 @@ def model_from_json(payload: Any) -> Model:
         key: (_choice(raw_time.get(key, default), ("", "food", "hunt", "shrimp", "current"), key)
               if key == "scene" else _number(raw_time.get(key, default), name=key,
                   minimum=0, maximum={"remainder": 0.1, "biology_remainder": 60,
-                                      "scene_remaining": 3600, "quiet_remaining": 3600, "food_in": 3600, "hunt_in": 3600}.get(key, float("inf"))))
+                                      "scene_remaining": 3600, "quiet_remaining": 3600, "food_in": 3600, "hunt_in": 3600, "shrimp_in": 3600}.get(key, float("inf"))))
         for key, default in WorldTime().__dict__.items()
     })
     raw_shelters = root.get("shelters", [item.__dict__ for item in DEFAULT_SHELTERS])
@@ -648,13 +663,24 @@ def model_from_json(payload: Any) -> Model:
             _number(item.get("lifetime"), name="crumb.lifetime", minimum=0, maximum=30)))
     if len({item.id for item in crumbs}) != len(crumbs):
         raise ModelValidationError("duplicate crumb ID")
+    raw_shrimp = root.get("shrimp", [])
+    if not isinstance(raw_shrimp, list) or len(raw_shrimp) > 1:
+        raise ModelValidationError("shrimp must contain at most one entity")
+    shrimp = []
+    for raw in raw_shrimp:
+        item = _object(raw, name="shrimp")
+        shrimp.append(Shrimp(_identity(item.get("id"), "shrimp.id"),
+            _number(item.get("x"), name="shrimp.x", minimum=0, maximum=1),
+            _number(item.get("y"), name="shrimp.y", minimum=0, maximum=1),
+            _number(item.get("lifetime"), name="shrimp.lifetime", minimum=0, maximum=60),
+            item.get("fleeing", False) is True))
     raw_hunt = _object(root.get("hunt", {}), name="hunt")
     hunt = Hunt(_identity(raw_hunt.get("actor", ""), "hunt.actor", empty=True),
                 _identity(raw_hunt.get("target", ""), "hunt.target", empty=True),
                 _number(raw_hunt.get("preparation", 0), name="hunt.preparation", minimum=0, maximum=2),
                 _number(raw_hunt.get("remaining", 0), name="hunt.remaining", minimum=0, maximum=10))
     return Model(MODEL_SCHEMA_VERSION, seed, tick, settings, tuple(resources),
-                 tuple(organisms), state, statistics, world_time, tuple(shelters), tuple(crumbs), hunt)
+                 tuple(organisms), state, statistics, world_time, tuple(shelters), tuple(crumbs), hunt, tuple(shrimp))
 
 
 def _identity(value: Any, name: str, *, empty: bool = False) -> str:

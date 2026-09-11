@@ -23,7 +23,7 @@ Item {
     ecosystem: {
       enabled: true, simulationSpeed: 1.0, startingSeed: 7,
       foodAbundance: 1.0, mutationRate: 0.08, predatorPressure: 1.0,
-      diagnosticAccelerated: false, foodDrops: true
+      diagnosticAccelerated: false, foodDrops: true, shrimpEnabled: true
     }
   })
   property var speciesDefinitions: [
@@ -123,6 +123,7 @@ Item {
     next.ecosystem.mutationRate = Math.round(clamp(ecosystem.mutationRate, 0, 1, defaults.ecosystem.mutationRate) * 10000) / 10000
     next.ecosystem.predatorPressure = Math.round(clamp(ecosystem.predatorPressure, 0, 2, defaults.ecosystem.predatorPressure) * 10000) / 10000
     next.ecosystem.foodDrops = ecosystem.foodDrops === undefined ? true : ecosystem.foodDrops === true
+    next.ecosystem.shrimpEnabled = ecosystem.shrimpEnabled === undefined ? true : ecosystem.shrimpEnabled === true
     next.ecosystem.diagnosticAccelerated = ecosystem.diagnosticAccelerated === undefined ? defaults.ecosystem.diagnosticAccelerated : !!ecosystem.diagnosticAccelerated
     return next
   }
@@ -233,6 +234,7 @@ Item {
       mutation_rate: config.ecosystem.mutationRate,
       predator_pressure: config.ecosystem.predatorPressure,
       food_drops: config.ecosystem.foodDrops,
+      shrimp_enabled: config.ecosystem.shrimpEnabled,
       diagnostic_accelerated: config.ecosystem.diagnosticAccelerated
     })])
     statusLine = "ECOSYSTEM RESET REQUESTED"
@@ -247,6 +249,7 @@ Item {
     ecosystem.mutation_rate = ecosystem.mutationRate
     ecosystem.predator_pressure = ecosystem.predatorPressure
     ecosystem.food_drops = ecosystem.foodDrops
+    ecosystem.shrimp_enabled = ecosystem.shrimpEnabled
     ecosystem.diagnostic_accelerated = ecosystem.diagnosticAccelerated
     Quickshell.execDetached(["python3", pluginDir + "/scripts/ecosystem_client.py", "settings", "--settings", JSON.stringify(ecosystem)])
   }
@@ -1179,6 +1182,14 @@ Item {
             Text { x: 16; anchors.verticalCenter: parent.verticalCenter; text: "AUTOMATIC FOOD DROPS"; color: "#d7eef2"; font.family: root.fontFamily; font.pixelSize: 12 }
             Text { anchors { right: parent.right; rightMargin: 18; verticalCenter: parent.verticalCenter } text: root.config.ecosystem.foodDrops ? "ON" : "OFF"; color: root.accent }
             MouseArea { anchors.fill: parent; onClicked: root.changeEcosystem("foodDrops", !root.config.ecosystem.foodDrops) }
+          }
+          Rectangle {
+            width: parent.width; height: 58; radius: 11
+            color: root.config.ecosystem.shrimpEnabled ? "#241bb8c8" : "#160c252d"
+            border.color: root.accent
+            Text { x: 16; anchors.verticalCenter: parent.verticalCenter; text: "RARE SHRIMP ENCOUNTERS"; color: "#d7eef2"; font.family: root.fontFamily; font.pixelSize: 12 }
+            Text { anchors { right: parent.right; rightMargin: 18; verticalCenter: parent.verticalCenter } text: root.config.ecosystem.shrimpEnabled ? "ON" : "OFF"; color: root.accent }
+            MouseArea { anchors.fill: parent; onClicked: root.changeEcosystem("shrimpEnabled", !root.config.ecosystem.shrimpEnabled) }
           }
           Rectangle {
             width: parent.width; height: 44; radius: 8

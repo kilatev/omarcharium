@@ -12,10 +12,12 @@ try:
     from scripts.ecosystem_model import Model, Tick, update
     from scripts.ecosystem_food import prepare_food, food_target, consume_food
     from scripts.ecosystem_hunts import prepare_hunts, hunt_motion, resolve_hunt
+    from scripts.ecosystem_personalities import update_shrimp, behavior_motion
 except ModuleNotFoundError:
     from ecosystem_model import Model, Tick, update
     from ecosystem_food import prepare_food, food_target, consume_food
     from ecosystem_hunts import prepare_hunts, hunt_motion, resolve_hunt
+    from ecosystem_personalities import update_shrimp, behavior_motion
 
 STEP = 0.1
 MAX_CATCHUP = 5.0
@@ -38,6 +40,7 @@ def start_scene(model: Model, kind: str, duration: float) -> Model:
 def _step(model: Model) -> Model:
     model = prepare_food(model, STEP)
     model = prepare_hunts(model, STEP)
+    model = update_shrimp(model, STEP)
     clock = model.world_time
     seconds = round(clock.seconds + STEP, 6)
     remaining = max(0.0, round(clock.scene_remaining - STEP, 6))
@@ -68,6 +71,9 @@ def _step(model: Model) -> Model:
                 vy += dy / distance * force
         behavior, target_id = ("feed", target.id) if target else ("cruise", "")
         override = hunt_motion(model, fish)
+        personality_override = behavior_motion(model, fish)
+        if personality_override and not override:
+            override = personality_override
         if override:
             vx, vy, behavior, target_id = override
         limit = .15 if override else .08 if target else .03

@@ -125,7 +125,7 @@ class EcosystemModelTests(unittest.TestCase):
 
     def test_model_settings_do_not_include_visual_configuration(self) -> None:
         model = initial_model(3, {"palette": "coral", "species": {"puffer": 1}})
-        self.assertEqual(set(model.settings), {"species", "food_abundance", "mutation_rate", "predator_pressure", "food_drops"})
+        self.assertEqual(set(model.settings), {"species", "food_abundance", "mutation_rate", "predator_pressure", "food_drops", "shrimp_enabled"})
 
     def test_mature_pair_reproduces_with_inherited_bounded_traits(self) -> None:
         model = self._empty_model(4)

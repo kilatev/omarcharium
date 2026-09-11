@@ -216,3 +216,19 @@ individual cooldowns, hunger and scene quiet periods still apply. A successful
 kill transfers at most 0.25 energy and never more than 60% of the prey's remaining
 energy. Hunt attempts and successes are exposed in shared telemetry. Save/load
 preserves preparation, targets and recovery; missing targets abort the hunt.
+
+## Personalities and shrimp
+
+Individual behavior is derived from inherited traits. High aggression produces
+brief territorial nudges, high diet preference produces curious exploration, and
+other fish tend toward shy shelter-aware cruising. Threat avoidance and active
+hunting always take priority, and each episode returns to ordinary motion.
+
+`ecosystem.shrimpEnabled` defaults to `true`. At seeded intervals of 180–360
+active seconds, one temporary shrimp may appear near the bottom when the scene is
+quiet. It flees toward the reef when a predator approaches, can be eaten through
+the same contact rules, and expires after 45 seconds. A catch transfers 0.08 energy
+and increments `shrimpCatches`; it is separate from fish death statistics. There
+is no shrimp reproduction. Disabling shrimp prevents new appearances while an
+existing shrimp can still flee, be caught, or expire. Checkpoints preserve the
+active shrimp and timer.
