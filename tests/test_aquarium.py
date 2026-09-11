@@ -231,6 +231,16 @@ class RendererTests(unittest.TestCase):
         self.assertGreater(dense_stalk_chars, low_stalk_chars * 2)
         self.assertGreater(dense_coral_chars, low_coral_chars * 2)
 class EvolutionTelemetryTests(unittest.TestCase):
+    def test_shared_renderer_falls_back_to_moving_local_fish_when_service_is_offline(self) -> None:
+        config = AQUARIUM.normalise_config({"art": {"showTelemetry": False}})
+        scene = AQUARIUM.OceanScene(80, 24, config, seed=7)
+        scene.shared_world = True
+        before = [(fish.x, fish.base_y) for fish in scene.fish]
+        scene.update(0.1)
+        after = [(fish.x, fish.base_y) for fish in scene.fish]
+        self.assertNotEqual(before, after)
+        self.assertIn("<=", scene.render().plain())
+
     def test_refresh_reads_shared_snapshot_and_coalesces_polls(self) -> None:
         calls = []
 

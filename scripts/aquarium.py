@@ -518,7 +518,7 @@ class OceanScene:
         self.elapsed += dt
         self.frame += 1
         current = self.config["art"]["current"]
-        for fish in (() if self.shared_world else self.fish):
+        for fish in (() if self.shared_world and self.shared_model is not None else self.fish):
             fish.x += fish.direction * fish.speed * current * dt
             sprite_width = max(map(len, SPRITES[fish.species][0]))
             if fish.direction > 0 and fish.x > self.width + sprite_width:
@@ -677,7 +677,7 @@ class OceanScene:
                 canvas.put(int(bubble.x) - 1, int(bubble.y), "·", palette["water"])
 
     def _draw_fish(self, canvas: FrameBuffer) -> None:
-        if self.shared_world:
+        if self.shared_world and self.shared_model is not None:
             self._draw_shared_world(canvas)
             return
         for fish in sorted(self.fish, key=lambda item: item.base_y):
