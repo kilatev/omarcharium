@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Publish the repository copy to the local Omarchy plugin without copying VCS
+# metadata. Runtime configuration and ecosystem state remain user-owned.
+
+plugin_id="dailen.omarcharium"
+repo_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+plugin_dir="${HOME}/.config/omarchy/plugins/${plugin_id}"
+restart_shell=true
+validate=true
+runtime_check=true
+
+usage() {
+    cat <<'EOF'
+Usage: scripts/sync-installed-plugin [options]
+
+Copy the repository into the local Omarchy plugin and restart the shell.
+
+Options:
+  --plugin-dir PATH  Override the installed plugin directory (for testing)
+  --no-restart       Do not restart the Omarchy shell
+  --no-validate      Do not run omarchy plugin validate
+  --no-runtime-check Do not verify the running ecosystem service
+  -h, --help         Show this help
+EOF
+}
+
+while (($#)); do
+    case "$1" in
+        --plugin-dir)
+            (($# >= 2)) || { echo "--plugin-dir requires a path" >&2; exit 2; }
+            plugin_dir=$2
+            shift 2
+            ;;
+        --no-restart)
+            restart_shell=false
+            shift
+            ;;
+        --no-validate)
+            validate=false
+            shift
+            ;;
+        --no-runtime-check)
+            runtime_check=false
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+done
+
+mkdir -p -- "$plugin_dir"
+
+for source_path in "$repo_dir"/* "$repo_dir"/.[!.]*; do
+    [[ -e "$source_path" ]] || continue
+    name=${source_path##*/}
+    [[ "$name" != ".git" ]] || continue
+    cp -a --no-preserve=ownership -- "$source_path" "$plugin_dir/"
+done
+
+if [[ "$validate" == true ]]; then
+    omarchy plugin validate "$plugin_dir"
+fi
+
+if [[ "$restart_shell" == true ]]; then
+    omarchy restart shell
+fi
+
+if [[ "$runtime_check" == true ]]; then
+    python3 - <<'PY'
+import time
+
+from scripts.ecosystem_client import request
+
+deadline = time.monotonic() + 10.0
+last_error = None
+while time.monotonic() < deadline:
+    try:
+        first = request({"operation": "snapshot"}, timeout=1.0)["snapshot"]
+        time.sleep(1.0)
+        second = request({"operation": "snapshot"}, timeout=1.0)["snapshot"]
+        if first.get("schemaVersion", 0) < 4:
+            raise RuntimeError("installed service returned a legacy model schema")
+        if first.get("worldTime", {}).get("seconds", 0) >= second.get("worldTime", {}).get("seconds", 0):
+            raise RuntimeError("ecosystem service time is not advancing")
+        first_by_id = {item["id"]: item for item in first["organisms"]}
+        moved = any(
+            item["x"] != first_by_id[item["id"]]["x"]
+            or item["y"] != first_by_id[item["id"]]["y"]
+            for item in second["organisms"]
+            if item["id"] in first_by_id
+        )
+        if not moved:
+            raise RuntimeError("ecosystem organism coordinates are not changing")
+        print("installed ecosystem service is advancing")
+        break
+    except (KeyError, OSError, RuntimeError, TypeError, ValueError) as error:
+        last_error = error
+        time.sleep(0.5)
+else:
+    raise SystemExit(f"runtime verification failed: {last_error}")
+PY
+fi
+
+echo "Omarcharium installed from $repo_dir into $plugin_dir"

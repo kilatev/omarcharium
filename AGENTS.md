@@ -18,7 +18,7 @@ These commands are safe routine checks for this project:
 ```sh
 python3 -m unittest discover -s tests -v
 python3 -m py_compile scripts/aquarium.py
-bash -n scripts/launch-aquarium scripts/idle-integration scripts/select-backdrop
+bash -n scripts/launch-aquarium scripts/idle-integration scripts/select-backdrop scripts/sync-installed-plugin
 omarchy plugin validate .
 git diff --check
 ```
@@ -37,3 +37,16 @@ Standalone pushes and publication outside `fukit` remain approval-gated.
 
 Never use broad destructive cleanup or reset commands. Use targeted,
 recoverable edits and preserve unrelated user changes.
+
+## Installed runtime handoff
+
+- The repository is the source of truth; the installed copy is updated only by
+  `scripts/sync-installed-plugin`.
+- That script copies runtime files without `.git`, preserves user configuration
+  and ecosystem state, validates the installed plugin, and restarts the
+  Omarchy shell so `Service.qml` reloads the current ecosystem service.
+- After a successful explicit `fukit` workflow, run
+  `scripts/sync-installed-plugin` as its final post-push handoff. A standalone
+  invocation still requires approval because it changes live Omarchy state.
+- Verify the handoff with two snapshot reads. The installed service must emit
+  the current schema and organism coordinates must change between reads.

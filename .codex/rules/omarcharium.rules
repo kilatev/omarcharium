@@ -9,6 +9,7 @@ prefix_rule(pattern=["bash", "-n"], decision="allow")
 prefix_rule(pattern=["omarchy", "plugin", "validate"], decision="allow")
 prefix_rule(pattern=["git", "diff", "--check"], decision="allow")
 prefix_rule(pattern=["qmltestrunner"], decision="allow")
+prefix_rule(pattern=["scripts/sync-installed-plugin"], decision="prompt", justification="Synchronizing the installed plugin and restarting Omarchy changes live system state")
 
 # These operations can change dependencies, machine state, or external state.
 prefix_rule(pattern=["pip", "install"], decision="prompt", justification="Installing dependencies changes the environment")

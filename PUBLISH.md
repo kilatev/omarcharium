@@ -45,17 +45,27 @@ git diff --check
 Sync the updated files to the local user plugin directory to test runtime behavior in the Omarchy shell:
 
 ```bash
-PLUGIN_ID="dailen.omarcharium"
-PLUGIN_DIR="$HOME/.config/omarchy/plugins/$PLUGIN_ID"
-mkdir -p "$PLUGIN_DIR"
-cp -a --no-preserve=ownership ./. "$PLUGIN_DIR/"
-omarchy restart shell
+scripts/sync-installed-plugin
+```
+
+The helper copies the repository into the local plugin directory without
+copying `.git`, preserves user-owned configuration and ecosystem state, runs
+`omarchy plugin validate` against the installed copy, and restarts the Omarchy
+shell. It is also the required final post-push handoff for the project's
+`fukit` workflow.
+
+For a file-only test or a temporary target:
+
+```bash
+scripts/sync-installed-plugin --no-restart --no-runtime-check --plugin-dir /tmp/omarcharium-plugin-test
 ```
 
 Verify that:
 - The control room opens cleanly and reflects any new settings.
 - The screensaver launches without error.
 - Audio diagnostics (`python3 scripts/aquarium.py --audio-test 8`) function as expected.
+- Two ecosystem snapshots show the current schema and changing organism
+  coordinates; the exact check is recorded in `AGENTS.md`.
 
 ### 4. Commit and tag
 
